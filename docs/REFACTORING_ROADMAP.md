@@ -161,41 +161,167 @@ After each refinement, verify:
 
 ---
 
-### 1.2 Refactor Player Module
-**Current State**: `player.py` is 684 lines with all ability logic mixed
-**Goal**: Separate player physics from ability implementations
+### 1.2 Refactor Player Module ✅ **COMPLETED**
+**Previous State**: `player.py` was 684 lines with all ability logic mixed
+**Current State**: Modular ability system with ~612 lines in player.py and dedicated ability modules
+**Completed**: 2025-11-15
 
-**Tasks**:
-1. **Create `abilities/` package** (30 min)
-   - Create `abilities/__init__.py`
-   - Define `Ability` base class with `update()`, `can_use()`, `use()`
+**Tasks** (All Completed):
+1. ✅ **Create `abilities/` package** (30 min)
+   - Created `abilities/__init__.py` (5.7K) with base classes
+   - Defined `Ability` base class with `update()`, `can_use()`, `use()`
+   - Added `ResourceAbility` for charge-based abilities
+   - Added `CooldownAbility` for cooldown-based abilities
 
-2. **Extract movement abilities** (2 hours)
-   - Create `abilities/movement.py`
+2. ✅ **Extract movement abilities** (2 hours)
+   - Created `abilities/movement.py` (10.5K)
    - Classes: `DoubleJump`, `Dash`, `WallJump`, `Slide`
-   - Each has own state and logic
+   - Each has own state and logic with comprehensive features
+   - Includes coyote time, jump buffering, input locking
 
-3. **Extract advanced abilities** (2 hours)
-   - Create `abilities/advanced.py`
-   - Classes: `WallCling`, `ShadowStep`, `AirDodge`, `Glide`
-   - Self-contained with timers and cooldowns
+3. ✅ **Extract advanced abilities** (2 hours)
+   - Created `abilities/advanced.py` (13.2K)
+   - Classes: `ShadowStep`, `WallCling`, `AirDodge`, `Glide`
+   - Self-contained with timers, cooldowns, and invulnerability frames
+   - Stamina system for WallCling, charge system for ShadowStep
 
-4. **Refactor Player to use ability system** (2 hours)
-   - Replace inline ability logic with ability instances
-   - `self.abilities = {'dash': Dash(), 'double_jump': DoubleJump(), ...}`
-   - Call `ability.update(player_state)` each frame
+4. ✅ **Refactor Player to use ability system** (2 hours)
+   - Replaced inline ability logic with ability instances
+   - Abilities managed through dedicated ability objects
+   - Player coordinates ability updates each frame
+   - player.py reduced from 684 to 612 lines
 
-5. **Extract powerup system** (1 hour)
-   - Create `powerups.py` module
+5. ✅ **Extract powerup system** (1 hour)
+   - Created `powerups.py` module (9.9K)
    - Classes: `SpeedBoost`, `TripleJump`, `CoinMagnet`
-   - Player holds list of active powerups
+   - Added `PowerupManager` for managing multiple active powerups
+   - Player holds list of active powerups with automatic expiration
 
-6. **Add ability unit tests** (1.5 hours)
-   - Test cooldown logic
-   - Test state transitions
-   - Test resource consumption (charges, stamina)
+6. ✅ **Add ability unit tests** (1.5 hours)
+   - Created `test_abilities.py` (15K) with comprehensive tests
+   - Tests for cooldown logic across all abilities
+   - Tests for state transitions and activation conditions
+   - Tests for resource consumption (charges, stamina)
+   - Tests for powerup system and manager
 
-**Benefits**: Each ability is testable, new abilities easy to add, player.py reduced to ~300 lines
+**Benefits Achieved**:
+- Each ability is independently testable
+- New abilities easy to add by extending base classes
+- Clear separation between movement physics and ability logic
+- Reduced coupling in player module
+- Comprehensive test coverage for abilities
+- Reusable base classes (Ability, ResourceAbility, CooldownAbility)
+
+#### 1.2.1 Refinement Opportunities (Future Improvements)
+**Status**: Identified areas for further enhancement
+**Priority**: Medium (non-blocking, incremental improvements)
+
+Based on analysis of the main branch codebase, the following refinements could further improve the player and ability modules:
+
+**High Priority Refinements**:
+
+1. **Further Reduce player.py Size** (3 hours)
+   - Current: 612 lines (down from 684)
+   - Target: ~400 lines
+   - Extract player rendering logic to `rendering/player_renderer.py`
+   - Extract collision detection to `physics/player_collider.py`
+   - Extract state management to `player_state.py`
+   - Benefits: Better separation of concerns, easier to test physics independently
+
+2. **Create Ability Configuration System** (2 hours)
+   - Create `data/abilities.json` for ability parameters
+   - Move hardcoded values from `settings.py` to JSON
+   - Allow per-ability tuning without code changes
+   - Examples: `DASH_SPEED`, `SHADOW_STEP_CHARGES`, cooldown timers
+   - Benefits: Easier game balance tuning, mod support, no code changes for tweaks
+
+3. **Add Integration Tests** (2.5 hours)
+   - Current: Only unit tests for individual abilities
+   - Create `tests/test_ability_integration.py`
+   - Test ability combinations (dash + wall jump, air dodge + glide)
+   - Test powerup effects on abilities (triple jump + double jump)
+   - Test edge cases (ability activation during other abilities)
+   - Benefits: Catch interaction bugs, ensure abilities work together
+
+**Medium Priority Refinements**:
+
+4. **Ability Combo System** (3 hours)
+   - Create `abilities/combos.py`
+   - Define ability combos (e.g., wall jump + air dodge = special move)
+   - Track recent ability usage for combo detection
+   - Add combo-specific effects or bonuses
+   - Benefits: Deeper gameplay mechanics, rewards skilled play
+
+5. **Enhanced Debug Visualization** (2 hours)
+   - Current: `get_debug_info()` returns dicts
+   - Create `debug/ability_debugger.py`
+   - Visual overlay showing active abilities, cooldowns, charges
+   - Display ability state machines in real-time
+   - Stamina/charge bars for visual feedback
+   - Benefits: Easier debugging, better development tools
+
+6. **Ability Animation Events** (2 hours)
+   - Create `abilities/animation_events.py`
+   - Define animation trigger points for each ability
+   - Hook abilities into future animation system
+   - Emit events for particle effects, sound, screen shake
+   - Benefits: Prepares for visual polish, cleaner event system
+
+7. **Powerup Visual Effects Manager** (2.5 hours)
+   - Current: Powerups exist but no visual feedback
+   - Create `effects/powerup_effects.py`
+   - Visual auras for speed boost (speed lines)
+   - Particle effects for triple jump (extra jump particles)
+   - Magnet visualization (coins highlight when in range)
+   - HUD indicators for active powerups
+   - Benefits: Better player feedback, more polished feel
+
+**Low Priority Refinements**:
+
+8. **Ability Unlock Progression System** (3 hours)
+   - Create `abilities/unlock_system.py`
+   - Track ability unlock requirements
+   - Link with orb collection system
+   - Ability upgrade system (e.g., dash → double dash)
+   - Benefits: Better progression, gameplay loop
+
+9. **Ability Input Buffering System** (2 hours)
+   - Current: Only jump has buffering
+   - Extend buffering to all abilities
+   - Create `input/ability_buffer.py`
+   - Queue ability inputs during animations
+   - Execute queued abilities when possible
+   - Benefits: More responsive controls, better feel
+
+10. **Performance Profiling** (1.5 hours)
+    - Profile ability update loops
+    - Optimize hot paths in `update()` methods
+    - Cache frequently computed values
+    - Reduce dictionary lookups in player_state
+    - Benefits: Better performance, especially with many abilities
+
+11. **Ability Cooldown Modifiers** (2 hours)
+    - System for reducing cooldowns (equipment, powerups, skills)
+    - Create `abilities/modifiers.py`
+    - Apply modifiers to cooldown durations
+    - Stack reduction effects (multiplicative or additive)
+    - Benefits: RPG-style stat progression, build variety
+
+**Estimated Total Time for All Refinements**: ~25 hours
+**Suggested Approach**: Tackle high-priority items first (items 1-3), then medium priority as needed
+
+**Dependencies**:
+- Item 1 (Further Reduce player.py) should be done before item 5 (Debug Visualization)
+- Item 2 (Configuration System) can be done independently
+- Item 6 (Animation Events) should wait for animation system implementation
+- Item 7 (Powerup Effects) can be done after particle system exists (Phase 7)
+
+**Testing Strategy**:
+After each refinement, verify:
+- All existing ability tests still pass
+- No regression in ability behavior
+- Game launches and abilities work correctly
+- Player movement feels identical to before changes
 
 ---
 
@@ -907,16 +1033,19 @@ After each refinement, verify:
 3. Add controls button to pause menu (30 min)
 4. ✅ Create level_gen package structure (30 min) - **DONE**
 5. ✅ Add module docstrings to level_gen (1 hour) - **DONE**
-6. Create abilities package structure (30 min)
-7. Add pytest to requirements (15 min)
-8. Create docs/ARCHITECTURE.md (1 hour)
+6. ✅ Create abilities package structure (30 min) - **DONE**
+7. ✅ Extract all abilities into modular system (9 hours) - **DONE**
+8. ✅ Add comprehensive ability tests (1.5 hours) - **DONE**
+9. Add pytest to requirements (15 min)
+10. Create docs/ARCHITECTURE.md (1 hour)
 
-**Additional Quick Wins from Level Gen Refinements**:
-9. Move magic numbers to constants (30 min) - From 1.1.1 item 6
-10. Unify Room class definitions (1 hour) - From 1.1.1 item 3
-11. Extract entity placer module (2 hours) - From 1.1.1 item 1
+**Additional Quick Wins from Refinements**:
+11. Move magic numbers to constants (30 min) - From 1.1.1 item 6
+12. Unify Room class definitions (1 hour) - From 1.1.1 item 3
+13. Extract entity placer module (2 hours) - From 1.1.1 item 1
+14. Create ability configuration JSON (2 hours) - From 1.2.1 item 2
 
-**Total Remaining Quick Wins: ~6 hours of high-value, low-risk improvements**
+**Total Remaining Quick Wins: ~7 hours of high-value, low-risk improvements**
 
 ---
 

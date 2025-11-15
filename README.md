@@ -81,22 +81,29 @@ F1 - View controls in-game
 All controls are fully customizable through the settings menu or by editing data/controls.json.
 
 Project Status
-Current Progress: ~15% Complete
+Current Progress: ~25% Complete (Updated: 2025-11-15)
 
 Completed Systems
-Core movement and physics engine
-Procedural level generation
-Data-driven controls system
-Controls viewer UI
-High score tracking
-Basic collectibles and power-ups
-Save/load system
-Complete design documentation
+✅ Core movement and physics engine
+✅ Procedural level generation (modular package structure)
+✅ Modular ability system (8 abilities: DoubleJump, Dash, WallJump, Slide, ShadowStep, WallCling, AirDodge, Glide)
+✅ Powerup system (SpeedBoost, TripleJump, CoinMagnet)
+✅ Comprehensive unit tests for abilities and level generation
+✅ Data-driven controls system
+✅ Controls viewer UI
+✅ High score tracking
+✅ Basic collectibles and power-ups
+✅ Save/load system
+✅ Complete design documentation
+✅ Refactoring roadmap with incremental improvements
+
 In Active Development
-Combat system (player attacks, damage system)
-Enemy AI and behaviors
-Ability orb collection mechanics
-Extended abilities (slide, glide, grapple)
+🚧 Combat system (player attacks, damage system)
+🚧 Enemy AI and behaviors
+🚧 Ability orb collection mechanics
+🚧 Extended abilities (6 more planned abilities)
+🚧 Integration tests for ability combinations
+
 See docs/IMPLEMENTATION_STATUS.md for detailed progress tracking.
 
 Code Architecture
@@ -124,6 +131,39 @@ Each system can be tested independently
 Clear separation of concerns
 Easy to extend individual features
 Better code organization (~928 lines across 6 focused modules vs 618 lines monolithic)
+
+See docs/REFACTORING_ROADMAP.md for ongoing architectural improvements.
+
+Ability System
+The player ability system has been refactored into a modular, extensible architecture with dedicated base classes and self-contained ability implementations:
+
+abilities/
+├── __init__.py       # Base classes: Ability, ResourceAbility, CooldownAbility (5.7K)
+├── movement.py       # Core movement abilities (10.5K)
+│                     # - DoubleJump, Dash, WallJump, Slide
+└── advanced.py       # Advanced abilities (13.2K)
+                      # - ShadowStep, WallCling, AirDodge, Glide
+
+powerups.py           # Powerup system (9.9K)
+                      # - SpeedBoost, TripleJump, CoinMagnet, PowerupManager
+
+test_abilities.py     # Comprehensive unit tests (15K)
+                      # - Tests for all abilities, cooldowns, resources, state transitions
+Key Features:
+
+Base Classes: Ability (abstract), ResourceAbility (charges/stamina), CooldownAbility (timed cooldowns)
+Self-Contained Logic: Each ability manages its own state, timers, and activation conditions
+Extensible Design: New abilities easily added by extending base classes
+Comprehensive Testing: Unit tests cover cooldowns, resource consumption, state transitions
+Player Integration: Player module coordinates ability updates via ability instances
+
+Benefits of Modular Structure:
+
+Each ability is independently testable
+Clear separation between player physics and ability logic
+Easy to add new abilities without modifying existing code
+Reduced coupling in player module (612 lines, down from 684)
+Reusable base classes for future abilities
 
 See docs/REFACTORING_ROADMAP.md for ongoing architectural improvements.
 
