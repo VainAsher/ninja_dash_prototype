@@ -360,6 +360,52 @@ class Player:
         down_now = keys[pygame.K_s] or keys[pygame.K_DOWN]
         jump_down = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
 
+        # DEBUG: F-key controls for ability testing
+        if keys[pygame.K_F1] and not getattr(self, '_f1_held', False):
+            self.abilities['double_jump'].enabled = not self.abilities['double_jump'].enabled
+            print(f"[DEBUG] Double Jump: {'ENABLED' if self.abilities['double_jump'].enabled else 'DISABLED'}")
+        self._f1_held = keys[pygame.K_F1]
+
+        if keys[pygame.K_F2] and not getattr(self, '_f2_held', False):
+            self.abilities['dash'].enabled = not self.abilities['dash'].enabled
+            print(f"[DEBUG] Dash: {'ENABLED' if self.abilities['dash'].enabled else 'DISABLED'}")
+        self._f2_held = keys[pygame.K_F2]
+
+        if keys[pygame.K_F3] and not getattr(self, '_f3_held', False):
+            self.abilities['slide'].enabled = not self.abilities['slide'].enabled
+            print(f"[DEBUG] Slide: {'ENABLED' if self.abilities['slide'].enabled else 'DISABLED'}")
+        self._f3_held = keys[pygame.K_F3]
+
+        if keys[pygame.K_F4] and not getattr(self, '_f4_held', False):
+            self.abilities['shadow_step'].enabled = not self.abilities['shadow_step'].enabled
+            print(f"[DEBUG] Shadow Step: {'ENABLED' if self.abilities['shadow_step'].enabled else 'DISABLED'}")
+        self._f4_held = keys[pygame.K_F4]
+
+        if keys[pygame.K_F5] and not getattr(self, '_f5_held', False):
+            self.abilities['wall_cling'].enabled = not self.abilities['wall_cling'].enabled
+            print(f"[DEBUG] Wall Cling: {'ENABLED' if self.abilities['wall_cling'].enabled else 'DISABLED'}")
+        self._f5_held = keys[pygame.K_F5]
+
+        if keys[pygame.K_F6] and not getattr(self, '_f6_held', False):
+            self.abilities['air_dodge'].enabled = not self.abilities['air_dodge'].enabled
+            print(f"[DEBUG] Air Dodge: {'ENABLED' if self.abilities['air_dodge'].enabled else 'DISABLED'}")
+        self._f6_held = keys[pygame.K_F6]
+
+        if keys[pygame.K_F7] and not getattr(self, '_f7_held', False):
+            self.abilities['glide'].enabled = not self.abilities['glide'].enabled
+            print(f"[DEBUG] Glide: {'ENABLED' if self.abilities['glide'].enabled else 'DISABLED'}")
+        self._f7_held = keys[pygame.K_F7]
+
+        if keys[pygame.K_F8] and not getattr(self, '_f8_held', False):
+            self.abilities['sword_attack'].enabled = not self.abilities['sword_attack'].enabled
+            print(f"[DEBUG] Sword Attack: {'ENABLED' if self.abilities['sword_attack'].enabled else 'DISABLED'}")
+        self._f8_held = keys[pygame.K_F8]
+
+        if keys[pygame.K_F9] and not getattr(self, '_f9_held', False):
+            self.abilities['grapple_hook'].enabled = not self.abilities['grapple_hook'].enabled
+            print(f"[DEBUG] Grapple Hook: {'ENABLED' if self.abilities['grapple_hook'].enabled else 'DISABLED'}")
+        self._f9_held = keys[pygame.K_F9]
+
         # Wall jump can lock horizontal input
         if self.abilities['wall_jump'].is_input_locked():
             left = False
@@ -504,6 +550,11 @@ class Player:
             if self.is_gliding:
                 effective_max_speed *= 1.3  # From GLIDE_HORIZONTAL_MULT
 
+            # CAP: Maximum combined speed to prevent extreme velocities
+            # This prevents dash + powerup + glide from stacking too much
+            absolute_max_speed = MAX_RUN_SPEED * 2.5  # Never exceed 2.5x base speed
+            effective_max_speed = min(effective_max_speed, absolute_max_speed)
+
             if abs(self.vx) > effective_max_speed:
                 self.vx = effective_max_speed * (1 if self.vx > 0 else -1)
 
@@ -593,6 +644,12 @@ class Player:
             # Can phase through phaseable walls (doors/walls, not floors)
             collision_tiles = [t for t in tiles if t not in phaseable_walls]
 
+        # CAP: Limit velocity during slide to prevent glitching through collisions
+        if self.is_sliding:
+            max_slide_speed = MAX_RUN_SPEED * 1.5  # Cap slide speed
+            if abs(self.vx) > max_slide_speed:
+                self.vx = max_slide_speed * (1 if self.vx > 0 else -1)
+
         # Horizontal movement and collision
         self.rect.x += int(round(self.vx))
         self.on_wall = False
@@ -623,6 +680,23 @@ class Player:
                 elif self.vy < 0:
                     self.rect.top = t.bottom
                     self.vy = 0.0
+
+        # World border checks - push player back into viewable area
+        from settings import WORLD_PX_W, WORLD_PX_H
+
+        if self.rect.left < 0:
+            self.rect.left = 0
+            self.vx = max(0, self.vx)  # Stop leftward movement
+        elif self.rect.right > WORLD_PX_W:
+            self.rect.right = WORLD_PX_W
+            self.vx = min(0, self.vx)  # Stop rightward movement
+
+        if self.rect.top < 0:
+            self.rect.top = 0
+            self.vy = max(0, self.vy)  # Stop upward movement
+        elif self.rect.bottom > WORLD_PX_H:
+            self.rect.bottom = WORLD_PX_H
+            self.vy = min(0, self.vy)  # Stop downward movement
 
     def _enter_crouch(self):
         """Enter crouch state."""

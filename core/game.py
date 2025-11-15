@@ -201,6 +201,7 @@ def draw_hud(
     abilities: List[str],
     game_time: float,
     unlock_mgr: Any = None,
+    player: Any = None,
 ) -> None:
     """Draw HUD overlay."""
     hud_surf.fill(COLOR_HUD_BG)
@@ -218,6 +219,41 @@ def draw_hud(
     hud_surf.blit(level_txt, (580, 8))
     hud_surf.blit(diff_txt, (760, 12))
     hud_surf.blit(time_txt, (900, 12))
+
+    # Stamina bar for dash ability
+    if player and hasattr(player, 'abilities') and 'dash' in player.abilities:
+        dash_ability = player.abilities['dash']
+        if hasattr(dash_ability, 'resource') and hasattr(dash_ability, 'max_resource'):
+            stamina_ratio = dash_ability.resource / dash_ability.max_resource
+
+            # Draw stamina bar below HP
+            bar_x = 480
+            bar_y = 12
+            bar_width = 60
+            bar_height = 8
+
+            # Background (empty bar)
+            pygame.draw.rect(hud_surf, (40, 40, 60), (bar_x, bar_y, bar_width, bar_height))
+
+            # Filled portion (stamina)
+            filled_width = int(bar_width * stamina_ratio)
+            if filled_width > 0:
+                # Color changes based on stamina level
+                if stamina_ratio > 0.5:
+                    stamina_color = (100, 200, 255)  # Cyan when full
+                elif stamina_ratio > 0.25:
+                    stamina_color = (255, 200, 100)  # Orange when medium
+                else:
+                    stamina_color = (255, 100, 100)  # Red when low
+
+                pygame.draw.rect(hud_surf, stamina_color, (bar_x, bar_y, filled_width, bar_height))
+
+            # Border
+            pygame.draw.rect(hud_surf, (120, 120, 140), (bar_x, bar_y, bar_width, bar_height), 1)
+
+            # Label
+            stamina_label = FONT_SMALL.render("STAM", True, (180, 180, 200))
+            hud_surf.blit(stamina_label, (bar_x - 38, bar_y - 2))
 
     # Ability Orbs counter
     if unlock_mgr:
@@ -522,6 +558,7 @@ class Game:
             self.abilities,
             self.game_time,
             self.unlock_mgr,
+            self.player,
         )
 
         self.logical.blit(self.play_area, (0, 0))
