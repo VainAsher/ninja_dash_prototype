@@ -11,15 +11,18 @@ from .generator import (
     generate_macro_maze,
     find_room_path,
     build_world_from_path,
-    decorate_world,
     generate_hazards,
     generate_coins_and_pickups,
     generate_powerups,
-    add_ability_subrooms,
-    build_solid_rects,
     find_spawn,
     mark_phaseable_walls,
     generate_ability_orbs,
+)
+
+from .decorations import (
+    decorate_world,
+    add_ability_subrooms,
+    build_solid_rects,
 )
 
 from .constants import (
