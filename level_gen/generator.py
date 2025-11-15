@@ -38,6 +38,8 @@ from .constants import (
     SUBROOM_EMPTY_THRESHOLD,
 )
 
+from .maze_generator import generate_macro_maze, find_room_path
+
 
 class Room:
     def __init__(self, rx, ry):
@@ -45,103 +47,6 @@ class Room:
         self.ry = ry
         self.open_up = self.open_down = False
         self.open_left = self.open_right = False
-
-
-def generate_macro_maze(cols, rows, rng, verticality_bias=DEFAULT_VERTICALITY_BIAS, branchiness=DEFAULT_BRANCHINESS):
-    """Generate room-to-room maze structure."""
-    class Cell:
-        __slots__ = ("open_up", "open_down", "open_left", "open_right", "visited")
-        def __init__(self):
-            self.open_up = self.open_down = self.open_left = self.open_right = False
-            self.visited = False
-
-    grid = [[Cell() for _ in range(cols)] for _ in range(rows)]
-
-    def neighbors(cx, cy):
-        dirs = []
-        if cy > 0:          dirs.append((cx, cy - 1, "U", verticality_bias))
-        if cy < rows - 1:   dirs.append((cx, cy + 1, "D", verticality_bias))
-        if cx > 0:          dirs.append((cx - 1, cy, "L", 1.0 - verticality_bias))
-        if cx < cols - 1:   dirs.append((cx + 1, cy, "R", 1.0 - verticality_bias))
-        total = sum(w for *_, w in dirs) or 1.0
-        weighted = []
-        for item in dirs:
-            w = item[3] / total
-            weighted.append((w, item))
-        rng.shuffle(weighted)
-        weighted.sort(key=lambda x: rng.random() * (1.0 / max(1e-6, x[0])))
-        return [item for _, item in weighted]
-
-    def open_between(x, y, nx, ny, d):
-        a = grid[y][x]; b = grid[ny][nx]
-        if d == "U": a.open_up = True; b.open_down = True
-        if d == "D": a.open_down = True; b.open_up = True
-        if d == "L": a.open_left = True; b.open_right = True
-        if d == "R": a.open_right = True; b.open_left = True
-
-    sx, sy = 0, rows - 1
-    stack = [(sx, sy)]
-    grid[sy][sx].visited = True
-
-    while stack:
-        x, y = stack[-1]
-        nxt = None
-        for nx, ny, d, _ in neighbors(x, y):
-            if not grid[ny][nx].visited:
-                nxt = (nx, ny, d)
-                break
-        if not nxt:
-            stack.pop()
-            continue
-        nx, ny, d = nxt
-        grid[ny][nx].visited = True
-        open_between(x, y, nx, ny, d)
-        stack.append((nx, ny))
-
-        if rng.random() < branchiness:
-            for tx, ty, td, _ in neighbors(x, y):
-                if (tx, ty) != (nx, ny):
-                    open_between(x, y, tx, ty, td)
-                    break
-
-    class RoomProxy:
-        def __init__(self, c):
-            self.open_up = c.open_up; self.open_down = c.open_down
-            self.open_left = c.open_left; self.open_right = c.open_right
-
-    return [[RoomProxy(grid[y][x]) for x in range(cols)] for y in range(rows)]
-
-
-def find_room_path(rooms, start, goal):
-    """Find path from start to goal room."""
-    sx, sy = start
-    gx, gy = goal
-    q = deque([(sx, sy)])
-    prev = {(sx, sy): None}
-
-    while q:
-        x, y = q.popleft()
-        if (x, y) == (gx, gy): break
-        r = rooms[y][x]
-        for nx, ny, ok in (
-            (x + 1, y, r.open_right),
-            (x - 1, y, r.open_left),
-            (x, y - 1, r.open_up),
-            (x, y + 1, r.open_down),
-        ):
-            if ok and (nx, ny) not in prev and 0 <= nx < ROOM_COLS and 0 <= ny < ROOM_ROWS:
-                prev[(nx, ny)] = (x, y)
-                q.append((nx, ny))
-
-    if (gx, gy) not in prev: return None
-
-    path = []
-    cur = (gx, gy)
-    while cur is not None:
-        path.append(cur)
-        cur = prev[cur]
-    path.reverse()
-    return path
 
 
 def build_world_from_path(path):
@@ -598,7 +503,7 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
 
     # Find path
     start = (0, ROOM_ROWS - 1); goal = (ROOM_COLS - 1, 0)
-    path = find_room_path(rooms, start, goal)
+    path = find_room_path(rooms, start, goal, ROOM_COLS, ROOM_ROWS)
     if not path:
         path = [(x, ROOM_ROWS - 1) for x in range(ROOM_COLS)] + [(ROOM_COLS - 1, y) for y in range(ROOM_ROWS - 2, -1, -1)]
 
