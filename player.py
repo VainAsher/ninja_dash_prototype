@@ -23,6 +23,7 @@ from settings import (
 # Import ability classes
 from abilities.movement import DoubleJump, Dash, WallJump, Slide
 from abilities.advanced import ShadowStep, WallCling, AirDodge, Glide
+from abilities.combat import SwordAttack, GrappleHook
 from powerups import PowerupManager
 
 
@@ -76,6 +77,9 @@ class Player:
             'wall_cling': WallCling(),
             'air_dodge': AirDodge(),
             'glide': Glide(),
+            # Combat abilities
+            'sword_attack': SwordAttack(),
+            'grapple_hook': GrappleHook(),
         }
 
         # Track which abilities are unlocked
@@ -90,14 +94,20 @@ class Player:
         self._shadow_step_held = False
         self._slide_key_held = False
         self._air_dodge_held = False
+        self._sword_key_held = False
+        self._grapple_key_held = False
 
         # Active state flags (for rendering and external queries)
         self.is_dashing = False
-        self.is_shadow_stepping = False
+        self.is_smoke_stepping = False  # Renamed from shadow_stepping
         self.is_sliding = False
         self.is_air_dodging = False
+        self.is_air_dodge_hanging = False  # NEW: hang time state
         self.is_gliding = False
         self.is_wall_clinging = False
+        self.is_attacking = False  # NEW: sword attack
+        self.is_blocking = False   # NEW: sword block
+        self.is_grappling = False  # NEW: grapple hook
 
     def apply_user_overrides(self, overrides):
         """Apply runtime physics overrides from user settings."""
@@ -123,6 +133,8 @@ class Player:
             'WALL_CLING': 'wall_cling',
             'AIR_DODGE': 'air_dodge',
             'GLIDE': 'glide',
+            'SWORD_ATTACK': 'sword_attack',
+            'GRAPPLE_HOOK': 'grapple_hook',
         }
         ability_key = ability_map.get(ability_name)
         if ability_key and ability_key in self.abilities:
@@ -179,8 +191,16 @@ class Player:
         if self.is_invulnerable():
             return False
 
+        # Apply block damage reduction if blocking
+        if self.is_blocking:
+            amount *= 0.5  # 50% damage reduction
+
         self.health -= max(1, int(amount))
         self.inv_timer = INVINCIBILITY_TIME
+
+        # Register damage with powerups (for extra jump expiration)
+        self.powerup_manager.register_damage(max(1, int(amount)))
+
         return True
 
     def heal(self, amount):
@@ -217,6 +237,13 @@ class Player:
         extra_jumps = self.powerup_manager.get_extra_jumps()
         self.abilities['double_jump'].set_max_jumps(MAX_JUMPS + extra_jumps)
 
+    def apply_extra_jump(self, uses=None, damage_limit=None):
+        """Activate extra jump power-up (use/damage-based)."""
+        self.powerup_manager.activate_extra_jump(uses, damage_limit)
+        # Update double jump ability with extra jumps
+        extra_jumps = self.powerup_manager.get_extra_jumps()
+        self.abilities['double_jump'].set_max_jumps(MAX_JUMPS + extra_jumps)
+
     def activate_magnet(self, duration=None, radius=None):
         """Activate coin magnet power-up."""
         self.powerup_manager.activate_coin_magnet(duration, radius)
@@ -246,11 +273,16 @@ class Player:
 
         # Update active state flags from abilities
         self.is_dashing = self.abilities['dash'].is_active
-        self.is_shadow_stepping = self.abilities['shadow_step'].is_active
+        self.is_smoke_stepping = self.abilities['shadow_step'].is_active  # Renamed
         self.is_sliding = self.abilities['slide'].is_active
-        self.is_air_dodging = self.abilities['air_dodge'].is_active
+        air_dodge = self.abilities['air_dodge']
+        self.is_air_dodging = air_dodge.is_dodging if hasattr(air_dodge, 'is_dodging') else air_dodge.is_active
+        self.is_air_dodge_hanging = air_dodge.is_hanging if hasattr(air_dodge, 'is_hanging') else False
         self.is_gliding = self.abilities['glide'].is_active
         self.is_wall_clinging = self.abilities['wall_cling'].is_active
+        self.is_attacking = self.abilities['sword_attack'].is_attacking if hasattr(self.abilities['sword_attack'], 'is_attacking') else False
+        self.is_blocking = self.abilities['sword_attack'].is_blocking if hasattr(self.abilities['sword_attack'], 'is_blocking') else False
+        self.is_grappling = self.abilities['grapple_hook'].is_active if hasattr(self.abilities['grapple_hook'], 'is_active') else False
 
         # Update triple jump max jumps from powerup
         extra_jumps = self.powerup_manager.get_extra_jumps()
@@ -278,6 +310,10 @@ class Player:
         if not modifications:
             return
 
+        # NEW: Apply multipliers before direct sets
+        if 'vx_mult' in modifications:
+            self.vx *= modifications['vx_mult']
+
         if 'vx' in modifications:
             self.vx = modifications['vx']
         if 'vy' in modifications:
@@ -288,16 +324,30 @@ class Player:
             self.on_ground = modifications['on_ground']
         if 'is_dashing' in modifications:
             self.is_dashing = modifications['is_dashing']
-        if 'is_shadow_stepping' in modifications:
-            self.is_shadow_stepping = modifications['is_shadow_stepping']
+        # NEW: Handle renamed smoke stepping
+        if 'is_smoke_stepping' in modifications:
+            self.is_smoke_stepping = modifications['is_smoke_stepping']
+        if 'is_shadow_stepping' in modifications:  # Legacy support
+            self.is_smoke_stepping = modifications['is_shadow_stepping']
         if 'is_sliding' in modifications:
             self.is_sliding = modifications['is_sliding']
         if 'is_air_dodging' in modifications:
             self.is_air_dodging = modifications['is_air_dodging']
+        # NEW: Air dodge hang time
+        if 'is_air_dodge_hanging' in modifications:
+            self.is_air_dodge_hanging = modifications['is_air_dodge_hanging']
         if 'is_gliding' in modifications:
             self.is_gliding = modifications['is_gliding']
         if 'is_wall_clinging' in modifications:
             self.is_wall_clinging = modifications['is_wall_clinging']
+        # NEW: Sword combat
+        if 'is_attacking' in modifications:
+            self.is_attacking = modifications['is_attacking']
+        if 'is_blocking' in modifications:
+            self.is_blocking = modifications['is_blocking']
+        # NEW: Grapple hook
+        if 'is_grappling' in modifications:
+            self.is_grappling = modifications['is_grappling']
         if 'crouching' in modifications:
             if modifications['crouching'] and not self.crouching:
                 self._enter_crouch()
@@ -346,14 +396,20 @@ class Player:
                 self._apply_ability_modifications(modifications)
         self._shadow_step_held = shadow_step_pressed
 
-        # Dash (Shift)
+        # Dash (Shift) - NEW: Hold to activate, release to deactivate
         dash_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         if FEATURES.get("dash", True):
-            if dash_pressed and not self._dash_held:
-                ability = self.abilities['dash']
+            ability = self.abilities['dash']
+            if dash_pressed:
+                # Holding dash - activate or maintain
                 if ability.can_use(player_state):
                     modifications = ability.use(player_state, input_state)
                     self._apply_ability_modifications(modifications)
+            else:
+                # Released dash - deactivate
+                if self._dash_held:  # Was holding, now released
+                    ability.deactivate_dash()
+                    self.is_dashing = False
         self._dash_held = dash_pressed
 
         # Slide (C key)
@@ -371,10 +427,10 @@ class Player:
             modifications = ability.use(player_state, input_state)
             self._apply_ability_modifications(modifications)
 
-        # Air Dodge (X key)
+        # Air Dodge (X key) - NEW: Hang time support
         air_dodge_key = keys[pygame.K_x]
+        ability = self.abilities['air_dodge']
         if air_dodge_key and not self._air_dodge_held:
-            ability = self.abilities['air_dodge']
             if ability.enabled and ability.can_use(player_state):
                 # Build dodge direction from input
                 dodge_x = (-1 if left else 0) + (1 if right else 0)
@@ -383,6 +439,15 @@ class Player:
                 input_state['dodge_y'] = dodge_y
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+
+        # NEW: Update direction during hang time
+        if ability.enabled and hasattr(ability, 'is_hanging') and ability.is_hanging:
+            dodge_x = (-1 if left else 0) + (1 if right else 0)
+            dodge_y = (-1 if jump_down else 0) + (1 if down_now else 0)
+            input_state['dodge_x'] = dodge_x
+            input_state['dodge_y'] = dodge_y
+            ability.update_direction(input_state, player_state)
+
         self._air_dodge_held = air_dodge_key
 
         # Glide (hold jump while falling)
@@ -394,15 +459,20 @@ class Player:
 
         # === HORIZONTAL MOVEMENT ===
         # Only apply manual movement if no ability is controlling velocity
-        if not (self.is_shadow_stepping or self.is_air_dodging or
-                self.is_dashing or self.is_sliding):
+        if not (self.is_smoke_stepping or self.is_air_dodging or self.is_sliding):
             target_dir = (-1 if left else 0) + (1 if right else 0)
             if target_dir != 0:
                 self.facing = target_dir
 
             on_ground = self.on_ground
+
+            # NEW: Apply glide air control multipliers
             accel = RUN_ACCEL_GROUND if on_ground else RUN_ACCEL_AIR
             decel = RUN_DECEL_GROUND if on_ground else RUN_DECEL_AIR
+            if self.is_gliding:
+                # Enhanced air control while gliding
+                accel *= 1.5  # From GLIDE_HORIZONTAL_ACCEL
+                decel *= 1.5
 
             if target_dir != 0:
                 if (self.vx == 0) or (self.vx * target_dir > 0):
@@ -418,10 +488,21 @@ class Player:
             if self.crouching:
                 self.vx *= CROUCH_SPEED_MULT
 
-            # Apply speed limits (with power-up modifier)
+            # Apply speed limits (with power-up and ability modifiers)
             effective_max_speed = self.user_max_speed or MAX_RUN_SPEED
+
+            # NEW: Apply dash speed multiplier
+            if self.is_dashing:
+                dash_ability = self.abilities['dash']
+                effective_max_speed *= dash_ability.speed_multiplier
+
+            # Power-up speed multiplier
             speed_mult = self.powerup_manager.get_speed_multiplier()
             effective_max_speed *= speed_mult
+
+            # NEW: Apply glide horizontal enhancement
+            if self.is_gliding:
+                effective_max_speed *= 1.3  # From GLIDE_HORIZONTAL_MULT
 
             if abs(self.vx) > effective_max_speed:
                 self.vx = effective_max_speed * (1 if self.vx > 0 else -1)
@@ -459,30 +540,42 @@ class Player:
                 if modifications:
                     self._apply_ability_modifications(modifications)
 
+                    # NEW: Consume extra jump powerup use if using extra jump
+                    extra_jumps = self.powerup_manager.get_extra_jumps()
+                    if extra_jumps > 0:
+                        # Check if this was an extra jump from the powerup
+                        # (jumps_used > MAX_JUMPS means using powerup jump)
+                        if double_jump.jumps_used > MAX_JUMPS:
+                            self.powerup_manager.consume_extra_jump_use()
+
     def _apply_gravity(self, keys):
         """Apply gravity and vertical movement modifiers."""
         down = keys[pygame.K_s] or keys[pygame.K_DOWN]
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
 
-        # Air Dodge and Glide handle their own vertical movement
+        # Air Dodge (dodging phase) and Glide handle their own vertical movement
         if self.is_air_dodging or self.is_gliding:
             return
 
         # Use override gravity if set
         effective_gravity = self.user_gravity or GRAVITY
 
+        # NEW: Apply hang time gravity reduction
+        if self.is_air_dodge_hanging:
+            effective_gravity *= 0.1  # Hang time has 10% gravity
+
         self.vy += effective_gravity
 
-        # Jump cut: release jump early = faster fall
-        if self.vy < 0 and not jump_held:
+        # Jump cut: release jump early = faster fall (not during hang time)
+        if self.vy < 0 and not jump_held and not self.is_air_dodge_hanging:
             self.vy += effective_gravity * (JUMP_CUT_MULT - 1)
 
-        # Falling gravity multiplier
-        if self.vy > 0:
+        # Falling gravity multiplier (not during hang time)
+        if self.vy > 0 and not self.is_air_dodge_hanging:
             self.vy += effective_gravity * (FALL_GRAVITY_MULT - 1)
 
-        # Fast fall
-        if FEATURES.get("fast_fall", True) and self.vy > 0 and down and not self.on_ground:
+        # Fast fall (not during hang time)
+        if FEATURES.get("fast_fall", True) and self.vy > 0 and down and not self.on_ground and not self.is_air_dodge_hanging:
             self.vy += effective_gravity * (FAST_FALL_MULT - 1)
 
         # Terminal velocity
@@ -494,9 +587,10 @@ class Player:
         if phaseable_walls is None:
             phaseable_walls = []
 
-        # During shadow step, ignore phaseable walls
+        # NEW: During smoke step, ignore phaseable walls (doors only)
         collision_tiles = tiles
-        if self.is_shadow_stepping:
+        if self.is_smoke_stepping:
+            # Can phase through phaseable walls (doors/walls, not floors)
             collision_tiles = [t for t in tiles if t not in phaseable_walls]
 
         # Horizontal movement and collision
@@ -577,18 +671,28 @@ class Player:
 
     @property
     def shadow_step_charges(self):
-        """Backward compatibility: get shadow step charges."""
+        """Backward compatibility: get shadow step/smoke step charges."""
         return self.abilities['shadow_step'].resource
 
     @shadow_step_charges.setter
     def shadow_step_charges(self, value):
-        """Backward compatibility: set shadow step charges."""
+        """Backward compatibility: set shadow step/smoke step charges."""
         self.abilities['shadow_step'].resource = value
 
     @property
     def shadow_step_max_charges(self):
-        """Backward compatibility: get shadow step max charges."""
+        """Backward compatibility: get shadow step/smoke step max charges."""
         return self.abilities['shadow_step'].max_resource
+
+    @property
+    def is_shadow_stepping(self):
+        """Backward compatibility: renamed to is_smoke_stepping."""
+        return self.is_smoke_stepping
+
+    @is_shadow_stepping.setter
+    def is_shadow_stepping(self, value):
+        """Backward compatibility: renamed to is_smoke_stepping."""
+        self.is_smoke_stepping = value
 
     # Powerup timers (for external queries)
     @property
@@ -600,6 +704,12 @@ class Player:
     def triple_jump_timer(self):
         """Get remaining triple jump time."""
         return self.powerup_manager.powerups['triple_jump'].get_time_remaining()
+
+    @property
+    def extra_jump_uses(self):
+        """Get remaining extra jump uses."""
+        powerup = self.powerup_manager.powerups.get('extra_jump')
+        return powerup.uses_remaining if powerup and powerup.is_active() else 0
 
     @property
     def magnet_timer(self):
