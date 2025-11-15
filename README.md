@@ -99,6 +99,34 @@ Ability orb collection mechanics
 Extended abilities (slide, glide, grapple)
 See docs/IMPLEMENTATION_STATUS.md for detailed progress tracking.
 
+Code Architecture
+Level Generation System
+The procedural level generation system has been refactored into a modular package structure for improved maintainability and testability:
+
+level_gen/
+├── __init__.py          # Main package exports and public API
+├── generator.py         # Core level generation logic (14K)
+├── maze_generator.py    # Maze and room connectivity (5.3K)
+├── decorations.py       # Platforms, pillars, and holes (3.5K)
+├── ability_features.py  # Ability-aware challenges and subrooms (4.9K)
+└── constants.py         # Configuration constants (2.0K)
+Key Modules:
+
+generator.py: Main generate_level() function, entity placement (coins, health, powerups, orbs)
+maze_generator.py: Room generation, pathfinding, macro maze connectivity
+decorations.py: Visual decorations and platform variations
+ability_features.py: Special challenges requiring specific abilities
+constants.py: Centralized configuration (spawn rates, difficulty settings)
+
+Benefits of Modular Structure:
+
+Each system can be tested independently
+Clear separation of concerns
+Easy to extend individual features
+Better code organization (~928 lines across 6 focused modules vs 618 lines monolithic)
+
+See docs/REFACTORING_ROADMAP.md for ongoing architectural improvements.
+
 Planned Features
 Combat & Enemies
 12+ Enemy Types: From basic patrollers to advanced teleporting enemies
