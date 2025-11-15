@@ -17,6 +17,27 @@ from settings import (
     COLOR_POWERUP_TRIPLE, COLOR_POWERUP_MAGNET,
 )
 
+from .constants import (
+    DEFAULT_VERTICALITY_BIAS,
+    DEFAULT_BRANCHINESS,
+    DEFAULT_PLATFORM_BAND_STEP,
+    DEFAULT_PLATFORM_LEN_RANGE,
+    DEFAULT_PILLAR_CHANCE,
+    DEFAULT_HOLE_CHANCE,
+    DEFAULT_HAZARD_RATE,
+    DEFAULT_COIN_DENSITY,
+    DEFAULT_HEALTH_DENSITY,
+    DEFAULT_LIVES_PER_LEVEL,
+    DEFAULT_POWERUP_DENSITY,
+    DEFAULT_ABILITY_ORB_SPAWN_RATE,
+    DEFAULT_PHASEABLE_WALL_CHANCE,
+    DEFAULT_ENABLE_ABILITY_SUBROOMS,
+    DEFAULT_SUBROOM_INTENSITY,
+    DEFAULT_ENABLE_ABILITY_CHALLENGES,
+    CHALLENGE_ATTEMPTS,
+    SUBROOM_EMPTY_THRESHOLD,
+)
+
 
 class Room:
     def __init__(self, rx, ry):
@@ -26,7 +47,7 @@ class Room:
         self.open_left = self.open_right = False
 
 
-def generate_macro_maze(cols, rows, rng, verticality_bias=0.5, branchiness=0.2):
+def generate_macro_maze(cols, rows, rng, verticality_bias=DEFAULT_VERTICALITY_BIAS, branchiness=DEFAULT_BRANCHINESS):
     """Generate room-to-room maze structure."""
     class Cell:
         __slots__ = ("open_up", "open_down", "open_left", "open_right", "visited")
@@ -200,10 +221,10 @@ def build_world_from_path(path):
 
 def decorate_world(world, path_mask, rng, **kwargs):
     """Add platforms, pillars, and holes to world."""
-    platform_band_step = kwargs.get('platform_band_step', 4)
-    platform_len_range = kwargs.get('platform_len_range', (3, 7))
-    pillar_chance = kwargs.get('pillar_chance', 0.3)
-    hole_chance = kwargs.get('hole_chance', 0.2)
+    platform_band_step = kwargs.get('platform_band_step', DEFAULT_PLATFORM_BAND_STEP)
+    platform_len_range = kwargs.get('platform_len_range', DEFAULT_PLATFORM_LEN_RANGE)
+    pillar_chance = kwargs.get('pillar_chance', DEFAULT_PILLAR_CHANCE)
+    hole_chance = kwargs.get('hole_chance', DEFAULT_HOLE_CHANCE)
     
     for ry in range(ROOM_ROWS):
         for rx in range(ROOM_COLS):
@@ -247,7 +268,24 @@ def decorate_world(world, path_mask, rng, **kwargs):
                                     world[yy][xx] = 0
 
 
-def generate_hazards(world, rng, rate=0.03):
+def _valid_pickup_spot(world, tx, ty):
+    """Check if (tx,ty) is a valid pickup spawn location."""
+    if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1): 
+        return False
+    return world[ty][tx] == 0 and world[ty + 1][tx] == 1
+
+
+def _far_from_hazards(tx, ty, hazard_tiles, radius=3):
+    """Check if tile is far enough from hazards."""
+    for hx, hy in hazard_tiles:
+        if abs(hx - tx) <= radius and hy == ty: 
+            return False
+        if abs(hy - ty) <= radius and hx == tx: 
+            return False
+    return True
+
+
+def generate_hazards(world, rng, rate=DEFAULT_HAZARD_RATE):
     """Generate spike hazards on platforms."""
     hazards = []
     for y in range(2, WORLD_H - 1):
@@ -260,28 +298,11 @@ def generate_hazards(world, rng, rate=0.03):
     return hazards
 
 
-def _valid_pickup_spot(world, tx, ty):
-    """Check if tile is valid for pickup placement."""
-    if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1): return False
-    return world[ty][tx] == 0 and world[ty + 1][tx] == 1
-
-
-def _far_from_hazards(tx, ty, hazard_tiles, radius=3):
-    """Check if tile is far enough from hazards."""
-    for hx, hy in hazard_tiles:
-        if abs(hx - tx) <= radius and hy == ty: return False
-        if abs(hy - ty) <= radius and hx == tx: return False
-    return True
-
-
-def generate_coins_and_pickups(world, rng, **kwargs):
+def generate_coins_and_pickups(world, rng, coin_density=DEFAULT_COIN_DENSITY, health_density=DEFAULT_HEALTH_DENSITY, lives_per_level=DEFAULT_LIVES_PER_LEVEL, hazards=None):
     """Generate coins, health, and lives."""
-    coin_density = kwargs.get('coin_density', 0.04)
-    health_density = kwargs.get('health_density', 0.006)
-    lives_per_level = kwargs.get('lives_per_level', 2)
-    hazards = kwargs.get('hazards', [])
-    
+    hazards = hazards or []
     coins = []; healths = []; lives = []
+    
     hazard_tiles = set()
     if hazards:
         for h in hazards:
@@ -291,8 +312,10 @@ def generate_coins_and_pickups(world, rng, **kwargs):
 
     for ty in range(2, WORLD_H - 1):
         for tx in range(1, WORLD_W - 1):
-            if not _valid_pickup_spot(world, tx, ty): continue
-            if not _far_from_hazards(tx, ty, hazard_tiles, radius=3): continue
+            if not _valid_pickup_spot(world, tx, ty): 
+                continue
+            if not _far_from_hazards(tx, ty, hazard_tiles, radius=3): 
+                continue
             
             if rng.random() < coin_density:
                 cx = tx * TILE_SIZE + TILE_SIZE // 4
@@ -306,42 +329,19 @@ def generate_coins_and_pickups(world, rng, **kwargs):
     attempts = 0
     while len(lives) < max(0, int(lives_per_level)):
         attempts += 1
-        if attempts > 10000: break
-        tx = rng.randint(1, WORLD_W - 2); ty = rng.randint(2, WORLD_H - 2)
+        if attempts > 10000: 
+            break
+        tx = rng.randint(1, WORLD_W - 2)
+        ty = rng.randint(2, WORLD_H - 2)
         if _valid_pickup_spot(world, tx, ty) and _far_from_hazards(tx, ty, hazard_tiles, radius=3):
             lx = tx * TILE_SIZE + TILE_SIZE // 4
             ly = ty * TILE_SIZE + TILE_SIZE // 4
             rect = pygame.Rect(lx, ly, TILE_SIZE // 2, TILE_SIZE // 2)
-            if any(rect.colliderect(c) for c in coins + healths + lives): continue
+            if any(rect.colliderect(c) for c in coins + healths + lives): 
+                continue
             lives.append(rect)
 
     return coins, healths, lives
-
-
-def generate_powerups(world, rng, density=0.005):
-    """Generate typed power-ups (speed, shadow, triple, magnet)."""
-    powerups = []
-    
-    # Build weighted list
-    types_list = []
-    for ptype, weight in POWERUP_TYPES:
-        types_list.extend([ptype] * weight)
-    
-    for ty in range(2, WORLD_H - 1):
-        for tx in range(1, WORLD_W - 1):
-            if not _valid_pickup_spot(world, tx, ty):
-                continue
-            
-            if rng.random() < density:
-                px = tx * TILE_SIZE + TILE_SIZE // 4
-                py = ty * TILE_SIZE + TILE_SIZE // 4
-                ptype = rng.choice(types_list)
-                powerups.append({
-                    'rect': pygame.Rect(px, py, TILE_SIZE // 2, TILE_SIZE // 2),
-                    'type': ptype
-                })
-    
-    return powerups
 
 
 def _add_ability_challenges(world, coins, rng, abilities):
@@ -389,9 +389,45 @@ def _add_ability_challenges(world, coins, rng, abilities):
                         coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
 
 
-def add_ability_subrooms(world, path_mask, rng, abilities, intensity=0.5):
-    """Add optional side rooms accessible with specific abilities."""
-    if intensity <= 0 or not abilities:
+def generate_powerups(world, rng, density=DEFAULT_POWERUP_DENSITY):
+    """Generate typed power-ups (speed, shadow, triple, magnet)."""
+    powerups = []
+    
+    # Build weighted list
+    types_list = []
+    for ptype, weight in POWERUP_TYPES:
+        types_list.extend([ptype] * weight)
+    
+    for ty in range(2, WORLD_H - 1):
+        for tx in range(1, WORLD_W - 1):
+            if not _valid_pickup_spot(world, tx, ty):
+                continue
+            
+            if rng.random() < density:
+                px = tx * TILE_SIZE + TILE_SIZE // 4
+                py = ty * TILE_SIZE + TILE_SIZE // 4
+                ptype = rng.choice(types_list)
+                powerups.append({
+                    'rect': pygame.Rect(px, py, TILE_SIZE // 2, TILE_SIZE // 2),
+                    'type': ptype
+                })
+    
+    return powerups
+
+
+def add_ability_subrooms(world, path_mask, rng, abilities, intensity=DEFAULT_SUBROOM_INTENSITY):
+    """
+    Add optional ability-specific challenge subrooms.
+    These reward players who have unlocked specific abilities.
+    
+    Args:
+        world: 2D level array
+        path_mask: 2D bool array marking critical path
+        rng: Random number generator
+        abilities: List of enabled ability strings
+        intensity: How many subrooms to create (0.0-1.0)
+    """
+    if not abilities:
         return
     
     num_subrooms = int(2 + intensity * 3)
@@ -404,7 +440,7 @@ def add_ability_subrooms(world, path_mask, rng, abilities, intensity=0.5):
         
         # Find a spot for a subroom
         attempts = 0
-        while attempts < 50:
+        while attempts < CHALLENGE_ATTEMPTS:
             attempts += 1
             rx = rng.randint(1, ROOM_COLS - 2)
             ry = rng.randint(1, ROOM_ROWS - 2)
@@ -416,7 +452,7 @@ def add_ability_subrooms(world, path_mask, rng, abilities, intensity=0.5):
                             for x in range(base_x + 2, base_x + ROOM_W - 2)
                             if world[y][x] == 0)
             
-            if empty_count > (ROOM_W - 4) * (ROOM_H - 4) * 0.6:
+            if empty_count > (ROOM_W - 4) * (ROOM_H - 4) * SUBROOM_EMPTY_THRESHOLD:
                 # Create subroom based on ability
                 if ability == "DOUBLE_JUMP":
                     # High platform requiring double jump
@@ -467,7 +503,7 @@ def find_spawn(path):
     return sx * TILE_SIZE, sy * TILE_SIZE
 
 
-def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=0.2):
+def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=DEFAULT_PHASEABLE_WALL_CHANCE):
     """
     Mark certain walls as phaseable (can be passed through with Shadow Step).
     Excludes boundary walls to prevent escaping the level.
@@ -508,7 +544,7 @@ def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=0.2):
     return phaseable
 
 
-def generate_ability_orbs(world, rng, spawn_rate=0.003):
+def generate_ability_orbs(world, rng, spawn_rate=DEFAULT_ABILITY_ORB_SPAWN_RATE):
     """
     Generate rare Ability Orb spawn points (0.3% rate).
 
@@ -556,8 +592,8 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
     # Generate maze
     rooms = generate_macro_maze(
         ROOM_COLS, ROOM_ROWS, rng,
-        verticality_bias=cfg.get("verticality_bias", 0.5),
-        branchiness=cfg.get("branchiness", 0.25),
+        verticality_bias=cfg.get("verticality_bias", DEFAULT_VERTICALITY_BIAS),
+        branchiness=cfg.get("branchiness", DEFAULT_BRANCHINESS),
     )
 
     # Find path
@@ -572,46 +608,46 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
     # Decorate
     decorate_world(
         world, path_mask, rng,
-        platform_band_step=cfg.get("platform_band_step", 4),
-        platform_len_range=cfg.get("platform_len_range", (3, 7)),
-        pillar_chance=cfg.get("pillar_chance", 0.3),
-        hole_chance=cfg.get("hole_chance", 0.2),
+        platform_band_step=cfg.get("platform_band_step", DEFAULT_PLATFORM_BAND_STEP),
+        platform_len_range=cfg.get("platform_len_range", DEFAULT_PLATFORM_LEN_RANGE),
+        pillar_chance=cfg.get("pillar_chance", DEFAULT_PILLAR_CHANCE),
+        hole_chance=cfg.get("hole_chance", DEFAULT_HOLE_CHANCE),
     )
 
     # Add ability-gated subrooms
-    if cfg.get('enable_ability_subrooms', True):
-        intensity = cfg.get('subroom_intensity', 0.5)
+    if cfg.get('enable_ability_subrooms', DEFAULT_ENABLE_ABILITY_SUBROOMS):
+        intensity = cfg.get('subroom_intensity', DEFAULT_SUBROOM_INTENSITY)
         add_ability_subrooms(world, path_mask, rng, abilities, intensity)
 
     # Build solids
     tiles, exit_rect = build_solid_rects(world)
 
     # Generate hazards
-    hazards = generate_hazards(world, rng, rate=cfg.get("hazard_rate", 0.03))
+    hazards = generate_hazards(world, rng, rate=cfg.get("hazard_rate", DEFAULT_HAZARD_RATE))
 
     # Generate pickups
     coins, healths, lives = generate_coins_and_pickups(
         world, rng,
-        coin_density=cfg.get("coin_density", 0.04),
-        health_density=cfg.get("health_density", 0.006),
-        lives_per_level=cfg.get("lives_per_level", 2),
+        coin_density=cfg.get("coin_density", DEFAULT_COIN_DENSITY),
+        health_density=cfg.get("health_density", DEFAULT_HEALTH_DENSITY),
+        lives_per_level=cfg.get("lives_per_level", DEFAULT_LIVES_PER_LEVEL),
         hazards=hazards
     )
 
     # Add ability-aware coin challenges
-    if cfg.get('enable_ability_challenges', True):
+    if cfg.get('enable_ability_challenges', DEFAULT_ENABLE_ABILITY_CHALLENGES):
         _add_ability_challenges(world, coins, rng, abilities)
 
     # Generate power-ups
-    powerups = generate_powerups(world, rng, density=cfg.get("powerup_density", 0.005))
+    powerups = generate_powerups(world, rng, density=cfg.get("powerup_density", DEFAULT_POWERUP_DENSITY))
 
     # Generate Ability Orbs (RARE - 0.3% spawn rate)
-    ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.get("ability_orb_spawn_rate", 0.003))
+    ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.get("ability_orb_spawn_rate", DEFAULT_ABILITY_ORB_SPAWN_RATE))
 
     # Mark phaseable walls for Shadow Step ability
     phaseable_walls = []
     if "SHADOW_STEP" in abilities:
-        phaseable_walls = mark_phaseable_walls(tiles, world, rng, cfg.get("phaseable_wall_chance", 0.2))
+        phaseable_walls = mark_phaseable_walls(tiles, world, rng, cfg.get("phaseable_wall_chance", DEFAULT_PHASEABLE_WALL_CHANCE))
 
     spawn = find_spawn(path)
 
