@@ -1,0 +1,45 @@
+
+Player modularisation patch for core/game.py
+===========================================
+
+1) IMPORT THE CONTROLLER
+
+   Near the other imports at the top of core/game.py, add:
+
+       from entities.player_entity import PlayerController
+
+
+2) ADD AN ATTRIBUTE IN Game.__init__
+
+   In Game.__init__, after you define self.player and self.abilities, add:
+
+       self.player_controller: PlayerController | None = None
+
+   For example, this block:
+
+       self.player: Player | None = None
+       self.abilities: list[str] = []
+
+   Becomes:
+
+       self.player: Player | None = None
+       self.abilities: list[str] = []
+       self.player_controller: PlayerController | None = None
+
+
+3) INITIALISE THE CONTROLLER IN build_level
+
+   In Game.build_level(), after you create the Player instance:
+
+       sx, sy = spawn
+       self.player = Player(sx, sy)
+
+   Add:
+
+       self.player_controller = PlayerController(self.player)
+
+   So the end of build_level looks roughly like:
+
+       sx, sy = spawn
+       self.player = Player(sx, sy)
+       self.player_controller = PlayerController(self.player)

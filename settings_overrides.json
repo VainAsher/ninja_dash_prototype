@@ -1,0 +1,11 @@
+{
+  "vsync": true,
+  "debug_mode": false,
+  "user_max_run_speed": 6.45,
+  "user_gravity": 0.44999999999999996,
+  "user_jump_power": null,
+  "branchiness_override": 0.05,
+  "subroom_intensity": 0.16,
+  "enable_ability_challenges": true,
+  "enable_ability_subrooms": true
+}
