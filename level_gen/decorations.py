@@ -17,9 +17,6 @@ from .constants import (
     DEFAULT_PLATFORM_LEN_RANGE,
     DEFAULT_PILLAR_CHANCE,
     DEFAULT_HOLE_CHANCE,
-    DEFAULT_SUBROOM_INTENSITY,
-    CHALLENGE_ATTEMPTS,
-    SUBROOM_EMPTY_THRESHOLD,
 )
 
 
@@ -70,72 +67,6 @@ def decorate_world(world, path_mask, rng, **kwargs):
                             for xx in range(hx, min(hx + 2, WORLD_W - 1)):
                                 if 0 < xx < WORLD_W - 1 and 0 < yy < WORLD_H - 1 and not path_mask[yy][xx] and world[yy][xx] != 2:
                                     world[yy][xx] = 0
-
-
-def add_ability_subrooms(world, path_mask, rng, abilities, intensity=DEFAULT_SUBROOM_INTENSITY):
-    """
-    Add optional ability-specific challenge subrooms.
-    These reward players who have unlocked specific abilities.
-
-    Args:
-        world: 2D level array
-        path_mask: 2D bool array marking critical path
-        rng: Random number generator
-        abilities: List of enabled ability strings
-        intensity: How many subrooms to create (0.0-1.0)
-    """
-    if not abilities:
-        return
-
-    num_subrooms = int(2 + intensity * 3)
-
-    for _ in range(num_subrooms):
-        if not abilities:
-            break
-
-        ability = rng.choice(abilities)
-
-        # Find a spot for a subroom
-        attempts = 0
-        while attempts < CHALLENGE_ATTEMPTS:
-            attempts += 1
-            rx = rng.randint(1, ROOM_COLS - 2)
-            ry = rng.randint(1, ROOM_ROWS - 2)
-            base_x = rx * ROOM_W
-            base_y = ry * ROOM_H
-
-            # Check if this area is mostly empty
-            empty_count = sum(1 for y in range(base_y + 2, base_y + ROOM_H - 2)
-                            for x in range(base_x + 2, base_x + ROOM_W - 2)
-                            if world[y][x] == 0)
-
-            if empty_count > (ROOM_W - 4) * (ROOM_H - 4) * SUBROOM_EMPTY_THRESHOLD:
-                # Create subroom based on ability
-                if ability == "DOUBLE_JUMP":
-                    # High platform requiring double jump
-                    platform_y = base_y + 3
-                    for x in range(base_x + 3, base_x + ROOM_W - 3):
-                        world[platform_y][x] = 1
-
-                elif ability == "DASH":
-                    # Long gap requiring dash
-                    platform_y = base_y + ROOM_H - 4
-                    for x in range(base_x + 2, base_x + 5):
-                        world[platform_y][x] = 1
-                    for x in range(base_x + ROOM_W - 5, base_x + ROOM_W - 2):
-                        world[platform_y][x] = 1
-
-                elif ability == "WALL_JUMP":
-                    # Vertical shaft with walls
-                    shaft_x = base_x + ROOM_W // 2
-                    for y in range(base_y + 2, base_y + ROOM_H - 2):
-                        world[y][shaft_x - 2] = 1
-                        world[y][shaft_x + 2] = 1
-                        world[y][shaft_x - 1] = 0
-                        world[y][shaft_x] = 0
-                        world[y][shaft_x + 1] = 0
-
-                break
 
 
 def build_solid_rects(world):

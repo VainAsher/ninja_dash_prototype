@@ -39,7 +39,8 @@ from .constants import (
 )
 
 from .maze_generator import generate_macro_maze, find_room_path
-from .decorations import decorate_world, add_ability_subrooms, build_solid_rects
+from .decorations import decorate_world, build_solid_rects
+from .ability_features import add_ability_challenges, add_ability_subrooms
 
 
 class Room:
@@ -199,51 +200,6 @@ def generate_coins_and_pickups(world, rng, coin_density=DEFAULT_COIN_DENSITY, he
             lives.append(rect)
 
     return coins, healths, lives
-
-
-def _add_ability_challenges(world, coins, rng, abilities):
-    """Add optional coin patterns that reward specific abilities."""
-    if not abilities:
-        return
-    
-    # Double Jump: vertical coin arcs
-    if "DOUBLE_JUMP" in abilities:
-        for _ in range(rng.randint(2, 4)):
-            tx = rng.randint(5, WORLD_W - 6)
-            ty = rng.randint(5, WORLD_H - 8)
-            if world[ty][tx] == 0:
-                # Place 3-5 coins in an arc
-                for i in range(3 + rng.randint(0, 2)):
-                    cx = (tx + i) * TILE_SIZE + TILE_SIZE // 4
-                    cy = (ty - i // 2) * TILE_SIZE + TILE_SIZE // 4
-                    if 0 < ty - i // 2 < WORLD_H:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
-    
-    # Dash: horizontal coin lines
-    if "DASH" in abilities:
-        for _ in range(rng.randint(2, 4)):
-            tx = rng.randint(5, WORLD_W - 15)
-            ty = rng.randint(5, WORLD_H - 6)
-            if world[ty][tx] == 0:
-                # Place 5-8 coins in a line
-                for i in range(5 + rng.randint(0, 3)):
-                    cx = (tx + i * 2) * TILE_SIZE + TILE_SIZE // 4
-                    cy = ty * TILE_SIZE + TILE_SIZE // 4
-                    if tx + i * 2 < WORLD_W:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
-    
-    # Wall Jump: vertical coin ladders
-    if "WALL_JUMP" in abilities:
-        for _ in range(rng.randint(1, 3)):
-            tx = rng.randint(5, WORLD_W - 6)
-            ty = rng.randint(8, WORLD_H - 6)
-            if world[ty][tx] == 0:
-                # Place coins going up
-                for i in range(4):
-                    cx = tx * TILE_SIZE + TILE_SIZE // 4
-                    cy = (ty - i * 2) * TILE_SIZE + TILE_SIZE // 4
-                    if 2 < ty - i * 2 < WORLD_H:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
 
 
 def generate_powerups(world, rng, density=DEFAULT_POWERUP_DENSITY):
@@ -414,7 +370,7 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
 
     # Add ability-aware coin challenges
     if cfg.get('enable_ability_challenges', DEFAULT_ENABLE_ABILITY_CHALLENGES):
-        _add_ability_challenges(world, coins, rng, abilities)
+        add_ability_challenges(world, coins, rng, abilities)
 
     # Generate power-ups
     powerups = generate_powerups(world, rng, density=cfg.get("powerup_density", DEFAULT_POWERUP_DENSITY))
