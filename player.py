@@ -22,6 +22,11 @@ from settings import (
     POWERUP_SPEED_DURATION, POWERUP_SPEED_FACTOR,
     POWERUP_TRIPLE_DURATION, POWERUP_TRIPLE_EXTRA_JUMPS,
     POWERUP_MAGNET_DURATION, POWERUP_MAGNET_RADIUS,
+    SLIDE_SPEED_MULT, SLIDE_DURATION, SLIDE_MIN_SPEED, SLIDE_COOLDOWN,
+    WALL_CLING_SLIDE_SPEED, WALL_CLING_STAMINA, WALL_CLING_STAMINA_REGEN,
+    AIR_DODGE_SPEED, AIR_DODGE_DURATION, AIR_DODGE_INVULN_TIME,
+    AIR_DODGE_COOLDOWN, AIR_DODGE_MAX_USES,
+    GLIDE_FALL_SPEED, GLIDE_HORIZONTAL_MULT, GLIDE_MAX_DURATION,
 )
 
 
@@ -90,7 +95,31 @@ class Player:
         self.shadow_step_cooldown_timer = 0.0
         self.shadow_step_invuln = 0.0
         self._shadow_step_held = False
-        
+
+        # NEW ABILITIES
+        # Slide
+        self.is_sliding = False
+        self.slide_time = 0.0
+        self.slide_cooldown_timer = 0.0
+        self._slide_key_held = False
+
+        # Wall Cling
+        self.is_wall_clinging = False
+        self.wall_cling_stamina = WALL_CLING_STAMINA
+
+        # Air Dodge
+        self.is_air_dodging = False
+        self.air_dodge_time = 0.0
+        self.air_dodge_cooldown_timer = 0.0
+        self.air_dodge_uses_left = AIR_DODGE_MAX_USES
+        self.air_dodge_invuln_timer = 0.0
+        self._air_dodge_held = False
+        self.air_dodge_direction = (0, 0)  # Dodge direction vector
+
+        # Glide
+        self.is_gliding = False
+        self.glide_time = 0.0
+
         # User overrides (from settings)
         self.user_max_speed = None
         self.user_gravity = None
@@ -113,18 +142,30 @@ class Player:
         self._update_powerup_timers(dt)
         self._update_dash_state(dt)
         self._update_shadow_step_state(dt)
+        self._update_slide_state(dt)
+        self._update_air_dodge_state(dt)
+        self._update_glide_state(dt)
+        self._update_wall_cling_state(dt)
         self._handle_input(keys, tiles, abilities)
         self._apply_gravity(keys)
         self._move_and_collide(tiles, phaseable_walls)
-        
-        # Apply wall slide if on wall
-        if self.on_wall and not self.on_ground and self.vy > WALL_SLIDE_SPEED:
-            self.vy = WALL_SLIDE_SPEED
+
+        # Apply wall slide or wall cling if on wall
+        if self.on_wall and not self.on_ground:
+            if self.is_wall_clinging:
+                # Wall cling: very slow slide
+                if self.vy > WALL_CLING_SLIDE_SPEED:
+                    self.vy = WALL_CLING_SLIDE_SPEED
+            elif self.vy > WALL_SLIDE_SPEED:
+                # Regular wall slide
+                self.vy = WALL_SLIDE_SPEED
 
     def take_damage(self, amount):
         """Apply damage to player if not invincible."""
-        # Check both regular invincibility and Shadow Step invulnerability
-        if self.inv_timer > 0.0 or self.shadow_step_invuln > 0.0:
+        # Check invincibility: regular, shadow step, or air dodge
+        if (self.inv_timer > 0.0 or
+            self.shadow_step_invuln > 0.0 or
+            self.air_dodge_invuln_timer > 0.0):
             return False
             
         self.health -= max(1, int(amount))
@@ -205,6 +246,26 @@ class Player:
         if self.shadow_step_invuln > 0.0:
             self.shadow_step_invuln = max(0.0, self.shadow_step_invuln - dt)
 
+        # New ability timers
+        # Slide cooldown
+        if self.slide_cooldown_timer > 0.0:
+            self.slide_cooldown_timer = max(0.0, self.slide_cooldown_timer - dt)
+
+        # Wall cling stamina regen
+        if not self.is_wall_clinging and self.wall_cling_stamina < WALL_CLING_STAMINA:
+            self.wall_cling_stamina = min(WALL_CLING_STAMINA,
+                                         self.wall_cling_stamina + WALL_CLING_STAMINA_REGEN * dt)
+
+        # Air dodge cooldown and invuln
+        if self.air_dodge_cooldown_timer > 0.0:
+            self.air_dodge_cooldown_timer = max(0.0, self.air_dodge_cooldown_timer - dt)
+        if self.air_dodge_invuln_timer > 0.0:
+            self.air_dodge_invuln_timer = max(0.0, self.air_dodge_invuln_timer - dt)
+
+        # Reset air dodge uses on ground
+        if self.on_ground:
+            self.air_dodge_uses_left = AIR_DODGE_MAX_USES
+
     def _update_dash_state(self, dt):
         """Update dash mechanics."""
         if self.is_dashing:
@@ -226,6 +287,43 @@ class Player:
                 self.shadow_step_invuln = SHADOW_STEP_INVULN_TIME
         elif self.shadow_step_cooldown_timer > 0:
             self.shadow_step_cooldown_timer = max(0.0, self.shadow_step_cooldown_timer - dt)
+
+    def _update_slide_state(self, dt):
+        """Update Slide ability state."""
+        if self.is_sliding:
+            self.slide_time -= dt
+            # End slide if time expires or speed too low
+            if self.slide_time <= 0 or abs(self.vx) < SLIDE_MIN_SPEED:
+                self.is_sliding = False
+                self.slide_cooldown_timer = SLIDE_COOLDOWN
+                # Try to stand up
+                if self.crouching:
+                    self._try_exit_crouch([])  # Will be called with proper tiles later
+
+    def _update_air_dodge_state(self, dt):
+        """Update Air Dodge ability state."""
+        if self.is_air_dodging:
+            self.air_dodge_time -= dt
+            if self.air_dodge_time <= 0:
+                self.is_air_dodging = False
+                self.air_dodge_cooldown_timer = AIR_DODGE_COOLDOWN
+
+    def _update_glide_state(self, dt):
+        """Update Glide ability state."""
+        if self.is_gliding:
+            self.glide_time += dt
+            # Optional: limit glide duration
+            if self.glide_time >= GLIDE_MAX_DURATION:
+                self.is_gliding = False
+
+    def _update_wall_cling_state(self, dt):
+        """Update Wall Cling ability state."""
+        if self.is_wall_clinging:
+            # Drain stamina
+            self.wall_cling_stamina -= dt
+            if self.wall_cling_stamina <= 0:
+                self.is_wall_clinging = False
+                self.wall_cling_stamina = 0
 
     def _handle_input(self, keys, tiles, abilities=None):
         """Process player input and update movement."""
@@ -271,12 +369,76 @@ class Player:
                 self.dash_time = DASH_DURATION
         self._dash_held = dash_pressed
 
+        # NEW ABILITIES HANDLING
+
+        # Slide (C key) - activated while crouched and moving
+        slide_key = keys[pygame.K_c]
+        slide_unlocked = "SLIDE" in abilities if abilities else False
+        if slide_unlocked and not self.is_sliding:
+            if slide_key and not self._slide_key_held:
+                # Can only slide on ground with enough speed
+                if (self.on_ground and abs(self.vx) >= SLIDE_MIN_SPEED and
+                    self.slide_cooldown_timer <= 0.0):
+                    self._activate_slide()
+        self._slide_key_held = slide_key
+
+        # Wall Cling - hold toward wall while touching it
+        wall_cling_unlocked = "WALL_CLING" in abilities if abilities else False
+        if wall_cling_unlocked and self.on_wall and not self.on_ground:
+            # Check if holding toward wall
+            holding_toward_wall = (
+                (left and self.wall_dir == -1) or
+                (right and self.wall_dir == 1)
+            )
+            if holding_toward_wall and self.wall_cling_stamina > 0:
+                self.is_wall_clinging = True
+            else:
+                self.is_wall_clinging = False
+        else:
+            self.is_wall_clinging = False
+
+        # Air Dodge (X key)
+        air_dodge_key = keys[pygame.K_x]
+        air_dodge_unlocked = "AIR_DODGE" in abilities if abilities else False
+        if air_dodge_unlocked:
+            if air_dodge_key and not self._air_dodge_held:
+                if (not self.on_ground and not self.is_air_dodging and
+                    self.air_dodge_uses_left > 0 and
+                    self.air_dodge_cooldown_timer <= 0.0):
+                    # Determine dodge direction from input
+                    dodge_x = (-1 if left else 0) + (1 if right else 0)
+                    dodge_y = (-1 if (keys[pygame.K_w] or keys[pygame.K_UP]) else 0) + \
+                             (1 if down_now else 0)
+                    if dodge_x == 0 and dodge_y == 0:
+                        dodge_x = self.facing  # Default to facing direction
+                    self._activate_air_dodge(dodge_x, dodge_y)
+        self._air_dodge_held = air_dodge_key
+
+        # Glide - hold jump while falling
+        glide_unlocked = "GLIDE" in abilities if abilities else False
+        jump_held = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+        if glide_unlocked:
+            if jump_held and not self.on_ground and self.vy > 0:
+                # Can glide while falling
+                self.is_gliding = True
+            else:
+                self.is_gliding = False
+                self.glide_time = 0.0
+        else:
+            self.is_gliding = False
+
         # Apply horizontal movement
         if self.is_shadow_stepping:
             # Shadow Step has priority and uses high speed
             self.vx = self.facing * SHADOW_STEP_SPEED
+        elif self.is_air_dodging:
+            # Air Dodge: move in dodge direction
+            self.vx = self.air_dodge_direction[0] * AIR_DODGE_SPEED
         elif self.is_dashing:
             self.vx = self.facing * DASH_SPEED
+        elif self.is_sliding:
+            # Slide: maintain high speed in current direction
+            self.vx = self.facing * abs(self.vx) * SLIDE_SPEED_MULT
         else:
             target_dir = (-1 if left else 0) + (1 if right else 0)
             if target_dir != 0:
@@ -363,13 +525,26 @@ class Player:
     def _apply_gravity(self, keys):
         """Apply gravity and vertical movement modifiers."""
         import pygame
-        
+
         down = keys[pygame.K_s] or keys[pygame.K_DOWN]
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
 
+        # Air Dodge: apply vertical movement
+        if self.is_air_dodging:
+            self.vy = self.air_dodge_direction[1] * AIR_DODGE_SPEED
+            return  # Skip normal gravity during air dodge
+
+        # Glide: reduce fall speed significantly
+        if self.is_gliding:
+            if self.vy > GLIDE_FALL_SPEED:
+                self.vy = GLIDE_FALL_SPEED
+            # Reduce horizontal speed while gliding
+            self.vx *= GLIDE_HORIZONTAL_MULT
+            return  # Skip normal gravity application during glide
+
         # Use override gravity if set
         effective_gravity = self.user_gravity or GRAVITY
-        
+
         self.vy += effective_gravity
         
         if self.vy < 0 and not jump_held:
@@ -389,14 +564,37 @@ class Player:
         """Activate Shadow Step ability."""
         if self.facing == 0:
             self.facing = 1
-        
+
         self.is_shadow_stepping = True
         self.shadow_step_time = SHADOW_STEP_DURATION
         self.shadow_step_charges -= 1
         self.shadow_step_invuln = SHADOW_STEP_INVULN_TIME
-        
+
         # Cancel regular dash if active
         self.is_dashing = False
+
+    def _activate_slide(self):
+        """Activate Slide ability."""
+        if not self.crouching:
+            self._enter_crouch()
+        self.is_sliding = True
+        self.slide_time = SLIDE_DURATION
+        self.facing = 1 if self.vx > 0 else -1
+
+    def _activate_air_dodge(self, dodge_x, dodge_y):
+        """Activate Air Dodge ability."""
+        # Normalize direction
+        import math
+        length = math.sqrt(dodge_x * dodge_x + dodge_y * dodge_y)
+        if length > 0:
+            self.air_dodge_direction = (dodge_x / length, dodge_y / length)
+        else:
+            self.air_dodge_direction = (self.facing, 0)
+
+        self.is_air_dodging = True
+        self.air_dodge_time = AIR_DODGE_DURATION
+        self.air_dodge_uses_left -= 1
+        self.air_dodge_invuln_timer = AIR_DODGE_INVULN_TIME
 
     def _move_and_collide(self, tiles, phaseable_walls=None):
         """Move player and resolve collisions with tiles."""

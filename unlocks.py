@@ -1,22 +1,51 @@
-"""Unlocks Module - Permanent progression system."""
+"""Unlocks Module - Orb-based progression system."""
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from typing import Set, Dict, Any, List, Optional
+from datetime import datetime
 
 from save_paths import get_save_path
 
 
 UNLOCKS_FILE = "unlocks.json"
 
+# Updated ability order with orb costs
 ABILITY_ORDER: List[str] = [
     "DOUBLE_JUMP",
     "DASH",
     "WALL_JUMP",
+    "SLIDE",
+    "WALL_CLING",
     "SHADOW_STEP",
-    "COIN_MAGNET",
+    "AIR_DODGE",
+    "GLIDE",
+    "GRAPPLE",
+    "GROUND_POUND",
+    "DOUBLE_DASH",
+    "TIME_SLOW",
+    "TELEPORT",
+    "STOMP_JUMP",
 ]
+
+# Orb cost for each ability
+ABILITY_ORB_COSTS: Dict[str, int] = {
+    "DOUBLE_JUMP": 5,
+    "DASH": 8,
+    "WALL_JUMP": 12,
+    "SLIDE": 15,
+    "WALL_CLING": 18,
+    "SHADOW_STEP": 25,
+    "AIR_DODGE": 30,
+    "GLIDE": 35,
+    "GRAPPLE": 40,
+    "GROUND_POUND": 45,
+    "DOUBLE_DASH": 50,
+    "TIME_SLOW": 60,
+    "TELEPORT": 75,
+    "STOMP_JUMP": 90,
+}
 
 ABILITY_INFO: Dict[str, Dict[str, Any]] = {
     "DOUBLE_JUMP": {
@@ -37,36 +66,111 @@ ABILITY_INFO: Dict[str, Dict[str, Any]] = {
         "description": "Jump off walls to regain height and change direction.",
         "color": (160, 255, 160),
     },
+    "SLIDE": {
+        "name": "Slide",
+        "short": "SL",
+        "description": "Slide under obstacles while maintaining speed.",
+        "color": (255, 180, 100),
+    },
+    "WALL_CLING": {
+        "name": "Wall Cling",
+        "short": "WC",
+        "description": "Hold onto walls to rest and plan your next move.",
+        "color": (150, 200, 150),
+    },
     "SHADOW_STEP": {
         "name": "Shadow Step",
         "short": "SS",
         "description": "Briefly phase through hazards and enemies.",
         "color": (200, 150, 255),
     },
-    "COIN_MAGNET": {
-        "name": "Coin Magnet",
-        "short": "CM",
-        "description": "Attract nearby coins while moving.",
-        "color": (255, 255, 120),
+    "AIR_DODGE": {
+        "name": "Air Dodge",
+        "short": "AD",
+        "description": "Quick dodge with brief invincibility frames.",
+        "color": (255, 150, 200),
+    },
+    "GLIDE": {
+        "name": "Glide",
+        "short": "GL",
+        "description": "Hold jump while falling to glide gracefully.",
+        "color": (150, 220, 255),
+    },
+    "GRAPPLE": {
+        "name": "Grappling Hook",
+        "short": "GR",
+        "description": "Launch a grappling hook to swing or pull yourself.",
+        "color": (200, 200, 100),
+    },
+    "GROUND_POUND": {
+        "name": "Ground Pound",
+        "short": "GP",
+        "description": "Slam down with force, damaging enemies below.",
+        "color": (180, 100, 100),
+    },
+    "DOUBLE_DASH": {
+        "name": "Double Dash",
+        "short": "DD",
+        "description": "Perform a second dash in mid-air.",
+        "color": (255, 200, 100),
+    },
+    "TIME_SLOW": {
+        "name": "Time Slow",
+        "short": "TS",
+        "description": "Slow down time while you move normally.",
+        "color": (100, 180, 255),
+    },
+    "TELEPORT": {
+        "name": "Teleport",
+        "short": "TP",
+        "description": "Instantly teleport a short distance.",
+        "color": (255, 100, 255),
+    },
+    "STOMP_JUMP": {
+        "name": "Stomp Jump",
+        "short": "SJ",
+        "description": "Bounce off enemies to chain attacks.",
+        "color": (255, 150, 100),
     },
 }
 
 
 @dataclass
 class UnlockState:
+    """State tracking ability unlocks and orb collection."""
     unlocked: Set[str]
+    ability_orbs_total: int
+    ability_orbs_spent: int
+    orb_collection_history: List[str]  # Timestamps of collections
 
     def to_jsonable(self) -> Dict[str, Any]:
-        return {"unlocked": sorted(self.unlocked)}
+        return {
+            "unlocked": sorted(self.unlocked),
+            "ability_orbs_total": self.ability_orbs_total,
+            "ability_orbs_spent": self.ability_orbs_spent,
+            "orb_collection_history": self.orb_collection_history,
+        }
 
     @classmethod
     def from_jsonable(cls, data: Dict[str, Any]) -> "UnlockState":
         if not isinstance(data, dict):
-            return cls(unlocked=set())
-        raw = data.get("unlocked", [])
-        if not isinstance(raw, list):
-            raw = []
-        return cls(unlocked=set(str(x) for x in raw))
+            return cls(
+                unlocked=set(),
+                ability_orbs_total=0,
+                ability_orbs_spent=0,
+                orb_collection_history=[]
+            )
+
+        unlocked = data.get("unlocked", [])
+        if not isinstance(unlocked, list):
+            unlocked = []
+
+        return cls(
+            unlocked=set(str(x) for x in unlocked),
+            ability_orbs_total=int(data.get("ability_orbs_total", 0)),
+            ability_orbs_spent=int(data.get("ability_orbs_spent", 0)),
+            orb_collection_history=data.get("orb_collection_history", [])
+        )
 
 
 def _unlocks_path():
@@ -75,19 +179,34 @@ def _unlocks_path():
 
 class UnlockManager:
     def __init__(self) -> None:
-        self._state = UnlockState(unlocked=set())
+        self._state = UnlockState(
+            unlocked=set(),
+            ability_orbs_total=0,
+            ability_orbs_spent=0,
+            orb_collection_history=[]
+        )
         self.load()
 
     def load(self) -> None:
         p = _unlocks_path()
         if not p.exists():
-            self._state = UnlockState(unlocked=set())
+            self._state = UnlockState(
+                unlocked=set(),
+                ability_orbs_total=0,
+                ability_orbs_spent=0,
+                orb_collection_history=[]
+            )
             return
         try:
             with p.open("r", encoding="utf-8") as f:
                 raw = json.load(f)
         except (json.JSONDecodeError, OSError):
-            self._state = UnlockState(unlocked=set())
+            self._state = UnlockState(
+                unlocked=set(),
+                ability_orbs_total=0,
+                ability_orbs_spent=0,
+                orb_collection_history=[]
+            )
             return
         self._state = UnlockState.from_jsonable(raw)
 
@@ -98,6 +217,97 @@ class UnlockManager:
         except OSError:
             pass
 
+    def add_ability_orb(self, count: int = 1) -> None:
+        """
+        Add collected ability orb(s) and check for auto-unlocks.
+
+        Args:
+            count: Number of orbs to add (default 1)
+        """
+        self._state.ability_orbs_total += count
+
+        # Record collection timestamp
+        timestamp = datetime.now().isoformat()
+        for _ in range(count):
+            self._state.orb_collection_history.append(timestamp)
+
+        # Check if we can auto-unlock any abilities
+        self._check_auto_unlocks()
+
+        self.save()
+
+    def _check_auto_unlocks(self) -> None:
+        """Automatically unlock abilities when orb threshold is reached."""
+        available_orbs = self._state.ability_orbs_total - self._state.ability_orbs_spent
+
+        for ability_id in ABILITY_ORDER:
+            # Skip if already unlocked
+            if ability_id in self._state.unlocked:
+                continue
+
+            # Check if we have enough orbs
+            cost = ABILITY_ORB_COSTS.get(ability_id, 9999)
+            if available_orbs >= cost:
+                # Unlock it!
+                self._state.unlocked.add(ability_id)
+                self._state.ability_orbs_spent += cost
+                available_orbs -= cost
+
+                print(f"🎉 Unlocked: {ABILITY_INFO[ability_id]['name']} (Cost: {cost} orbs)")
+
+    def get_ability_orbs_available(self) -> int:
+        """Get number of unspent ability orbs."""
+        return self._state.ability_orbs_total - self._state.ability_orbs_spent
+
+    def get_ability_orbs_total(self) -> int:
+        """Get total orbs collected ever."""
+        return self._state.ability_orbs_total
+
+    def get_next_unlock(self) -> Optional[Dict[str, Any]]:
+        """
+        Get information about the next ability to unlock.
+
+        Returns:
+            Dict with 'ability_id', 'name', 'cost', 'orbs_needed'
+            or None if all abilities are unlocked
+        """
+        for ability_id in ABILITY_ORDER:
+            if ability_id not in self._state.unlocked:
+                cost = ABILITY_ORB_COSTS.get(ability_id, 9999)
+                available = self.get_ability_orbs_available()
+                orbs_needed = max(0, cost - available)
+
+                return {
+                    'ability_id': ability_id,
+                    'name': ABILITY_INFO[ability_id]['name'],
+                    'cost': cost,
+                    'orbs_needed': orbs_needed,
+                    'progress': min(1.0, available / cost if cost > 0 else 1.0),
+                }
+
+        return None  # All unlocked
+
+    def get_unlock_progress_summary(self) -> str:
+        """Get a formatted string showing unlock progress."""
+        total_orbs = self._state.ability_orbs_total
+        available_orbs = self.get_ability_orbs_available()
+        unlocked_count = len(self._state.unlocked)
+        total_abilities = len(ABILITY_ORDER)
+
+        next_unlock = self.get_next_unlock()
+
+        if next_unlock:
+            return (
+                f"Ability Orbs: {available_orbs} available ({total_orbs} total) | "
+                f"Unlocked: {unlocked_count}/{total_abilities} | "
+                f"Next: {next_unlock['name']} ({next_unlock['orbs_needed']} more needed)"
+            )
+        else:
+            return (
+                f"Ability Orbs: {available_orbs} | "
+                f"All abilities unlocked! ({total_abilities}/{total_abilities})"
+            )
+
     def is_unlocked(self, ability_id: str) -> bool:
         return ability_id in self._state.unlocked
 
@@ -105,6 +315,12 @@ class UnlockManager:
         return self.is_unlocked(ability_id)
 
     def unlock(self, ability_id: str) -> bool:
+        """
+        Manually unlock an ability (for debugging/cheats).
+
+        Returns:
+            True if newly unlocked, False if already unlocked
+        """
         if ability_id in self._state.unlocked:
             return False
         self._state.unlocked.add(ability_id)
@@ -112,9 +328,14 @@ class UnlockManager:
         return True
 
     def unlock_next(self) -> Optional[str]:
+        """
+        Legacy method - now just checks auto-unlock.
+        Use add_ability_orb() instead for new system.
+        """
+        self._check_auto_unlocks()
+        # Return first unlocked ability
         for ability_id in ABILITY_ORDER:
-            if ability_id not in self._state.unlocked:
-                self.unlock(ability_id)
+            if ability_id in self._state.unlocked:
                 return ability_id
         return None
 
@@ -122,10 +343,45 @@ class UnlockManager:
         return [a for a in ABILITY_ORDER if a in self._state.unlocked]
 
     def reset(self) -> None:
-        self._state = UnlockState(unlocked=set())
+        self._state = UnlockState(
+            unlocked=set(),
+            ability_orbs_total=0,
+            ability_orbs_spent=0,
+            orb_collection_history=[]
+        )
         self.save()
 
+    def get_all_ability_info(self) -> List[Dict[str, Any]]:
+        """
+        Get information about all abilities for UI display.
 
+        Returns:
+            List of dicts with ability info and unlock status
+        """
+        result = []
+        available_orbs = self.get_ability_orbs_available()
+
+        for ability_id in ABILITY_ORDER:
+            cost = ABILITY_ORB_COSTS.get(ability_id, 9999)
+            is_unlocked = ability_id in self._state.unlocked
+            info = ABILITY_INFO.get(ability_id, {})
+
+            result.append({
+                'ability_id': ability_id,
+                'name': info.get('name', ability_id),
+                'short': info.get('short', '??'),
+                'description': info.get('description', ''),
+                'color': info.get('color', (200, 200, 200)),
+                'cost': cost,
+                'unlocked': is_unlocked,
+                'can_afford': available_orbs >= cost,
+                'progress': min(1.0, available_orbs / cost if cost > 0 else 1.0) if not is_unlocked else 1.0,
+            })
+
+        return result
+
+
+# Global instance
 _unlock_manager: UnlockManager | None = None
 
 

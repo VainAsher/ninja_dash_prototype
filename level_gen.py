@@ -508,29 +508,58 @@ def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=0.2):
     return phaseable
 
 
+def generate_ability_orbs(world, rng, spawn_rate=0.003):
+    """
+    Generate rare Ability Orb spawn points (0.3% rate).
+
+    Args:
+        world: 2D level array
+        rng: Random number generator
+        spawn_rate: Probability per valid location (default 0.3%)
+
+    Returns:
+        List of ability orb spawn rectangles
+    """
+    orbs = []
+
+    for ty in range(2, WORLD_H - 1):
+        for tx in range(1, WORLD_W - 1):
+            # Must be valid spawn location (same as other pickups)
+            if not _valid_pickup_spot(world, tx, ty):
+                continue
+
+            # Random chance for orb spawn (very rare!)
+            if rng.random() < spawn_rate:
+                ox = tx * TILE_SIZE + TILE_SIZE // 4
+                oy = ty * TILE_SIZE + TILE_SIZE // 4
+                orbs.append(pygame.Rect(ox, oy, TILE_SIZE // 2, TILE_SIZE // 2))
+
+    return orbs
+
+
 def generate_level(seed=None, diff_cfg=None, abilities=None):
     """
     Generate a complete level with ability-aware features.
-    
+
     Args:
         seed: Random seed
         diff_cfg: Difficulty configuration
         abilities: List of enabled abilities
-        
+
     Returns:
-        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups)
+        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs)
     """
     cfg = diff_cfg or {}
     abilities = abilities or []
     rng = random.Random(seed)
-    
+
     # Generate maze
     rooms = generate_macro_maze(
         ROOM_COLS, ROOM_ROWS, rng,
         verticality_bias=cfg.get("verticality_bias", 0.5),
         branchiness=cfg.get("branchiness", 0.25),
     )
-    
+
     # Find path
     start = (0, ROOM_ROWS - 1); goal = (ROOM_COLS - 1, 0)
     path = find_room_path(rooms, start, goal)
@@ -539,7 +568,7 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
 
     # Build world
     world, path_mask = build_world_from_path(path)
-    
+
     # Decorate
     decorate_world(
         world, path_mask, rng,
@@ -548,18 +577,18 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
         pillar_chance=cfg.get("pillar_chance", 0.3),
         hole_chance=cfg.get("hole_chance", 0.2),
     )
-    
+
     # Add ability-gated subrooms
     if cfg.get('enable_ability_subrooms', True):
         intensity = cfg.get('subroom_intensity', 0.5)
         add_ability_subrooms(world, path_mask, rng, abilities, intensity)
-    
+
     # Build solids
     tiles, exit_rect = build_solid_rects(world)
-    
+
     # Generate hazards
     hazards = generate_hazards(world, rng, rate=cfg.get("hazard_rate", 0.03))
-    
+
     # Generate pickups
     coins, healths, lives = generate_coins_and_pickups(
         world, rng,
@@ -568,19 +597,22 @@ def generate_level(seed=None, diff_cfg=None, abilities=None):
         lives_per_level=cfg.get("lives_per_level", 2),
         hazards=hazards
     )
-    
+
     # Add ability-aware coin challenges
     if cfg.get('enable_ability_challenges', True):
         _add_ability_challenges(world, coins, rng, abilities)
-    
+
     # Generate power-ups
     powerups = generate_powerups(world, rng, density=cfg.get("powerup_density", 0.005))
-    
+
+    # Generate Ability Orbs (RARE - 0.3% spawn rate)
+    ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.get("ability_orb_spawn_rate", 0.003))
+
     # Mark phaseable walls for Shadow Step ability
     phaseable_walls = []
     if "SHADOW_STEP" in abilities:
         phaseable_walls = mark_phaseable_walls(tiles, world, rng, cfg.get("phaseable_wall_chance", 0.2))
-    
+
     spawn = find_spawn(path)
-    
-    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls
+
+    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs

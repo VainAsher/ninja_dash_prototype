@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "description": "Ninja Dash - Data-driven control configuration",
+  "keyboard": {
+    "movement": {
+      "move_left": ["a", "left"],
+      "move_right": ["d", "right"],
+      "crouch_down": ["s", "down"],
+      "jump": ["space", "w", "up"]
+    },
+    "abilities": {
+      "dash": ["lshift", "rshift"],
+      "shadow_step": ["q"],
+      "grapple": ["e"],
+      "ground_pound": ["lctrl", "rctrl"],
+      "air_dodge": ["x"],
+      "slide": ["c"],
+      "glide": ["hold:space"],
+      "wall_cling": ["hold:a|d"],
+      "time_slow": ["z"],
+      "teleport": ["r"]
+    },
+    "combat": {
+      "melee_attack": ["j", "mouse1"],
+      "ranged_attack": ["k", "mouse2"],
+      "special_attack": ["l"],
+      "block_parry": ["i"]
+    },
+    "ui": {
+      "pause": ["escape"],
+      "inventory": ["tab"],
+      "map": ["m"],
+      "quests": ["n"],
+      "stats": ["p"],
+      "controls_help": ["f1"]
+    },
+    "debug": {
+      "toggle_debug": ["f3"],
+      "toggle_hitboxes": ["f4"],
+      "reload_level": ["f5"],
+      "god_mode": ["f9"]
+    }
+  },
+  "gamepad": {
+    "movement": {
+      "move": "left_stick",
+      "crouch_down": "left_stick_down",
+      "jump": "a"
+    },
+    "abilities": {
+      "dash": "rb",
+      "shadow_step": "lb",
+      "grapple": "x",
+      "ground_pound": "b",
+      "air_dodge": "y",
+      "time_slow": "left_trigger",
+      "teleport": "right_trigger"
+    },
+    "combat": {
+      "melee_attack": "x",
+      "ranged_attack": "y",
+      "special_attack": "b",
+      "block_parry": "lb"
+    },
+    "ui": {
+      "pause": "start",
+      "inventory": "select",
+      "map": "dpad_up",
+      "quests": "dpad_left",
+      "controls_help": "select+start"
+    }
+  },
+  "display_names": {
+    "space": "Space",
+    "lshift": "Left Shift",
+    "rshift": "Right Shift",
+    "lctrl": "Left Ctrl",
+    "rctrl": "Right Ctrl",
+    "escape": "Esc",
+    "tab": "Tab",
+    "mouse1": "Left Click",
+    "mouse2": "Right Click",
+    "a": "A",
+    "d": "D",
+    "s": "S",
+    "w": "W",
+    "left": "←",
+    "right": "→",
+    "up": "↑",
+    "down": "↓"
+  }
+}

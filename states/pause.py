@@ -22,6 +22,7 @@ class PauseState(GameState):
             self.buttons.append(Button(label, cb))
 
         add("▶ Resume", lambda: self.game.change_state("play"))
+        add("🎮 Controls", lambda: self.game.change_state("controls"))
         add("↩ Quit to Menu", lambda: self.game.change_state("menu"))
 
     def handle_event(self, event: pygame.event.EventType) -> None:

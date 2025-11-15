@@ -65,6 +65,11 @@ class HelpState(GameState):
                 y += 22
             y += 10
 
+        # Add note about controls viewer
+        controls_note = FONT_SMALL.render("Press F1 or check Pause menu for full controls viewer", True, (150, 200, 255))
+        controls_note_rect = controls_note.get_rect(center=(LOGICAL_W // 2, LOGICAL_H - 60))
+        surface.blit(controls_note, controls_note_rect)
+
         inst = FONT_SMALL.render("ESC: back to menu", True, COLOR_TEXT)
         inst_rect = inst.get_rect(
             bottomright=(LOGICAL_W - 16, LOGICAL_H - 12)

@@ -47,6 +47,7 @@ from user_settings import get_user_settings
 
 from entities.exit_gate import ExitGate
 from entities.collectibles import Coin, HealthPickup, LifePickup, Powerup
+from entities.ability_orb import AbilityOrb
 from entities.player_entity import PlayerController
 
 from states.base import GameState
@@ -60,6 +61,7 @@ from states.settings_state import SettingsState
 from states.help_state import HelpState
 from states.name_entry import NameEntryState
 from states.seed_entry import SeedEntryState
+from states.controls_viewer import ControlsViewerState
 
 
 def create_window() -> pygame.Surface:
@@ -198,8 +200,9 @@ def draw_hud(
     difficulty: str,
     abilities: List[str],
     game_time: float,
+    unlock_mgr: Any = None,
 ) -> None:
-    """Draw HUD overlay."""        
+    """Draw HUD overlay."""
     hud_surf.fill(COLOR_HUD_BG)
 
     score_txt = FONT.render(f"Score: {score}", True, COLOR_TEXT)
@@ -216,8 +219,24 @@ def draw_hud(
     hud_surf.blit(diff_txt, (760, 12))
     hud_surf.blit(time_txt, (900, 12))
 
+    # Ability Orbs counter
+    if unlock_mgr:
+        available_orbs = unlock_mgr.get_ability_orbs_available()
+        total_orbs = unlock_mgr.get_ability_orbs_total()
+        orb_color = (200, 150, 255)  # Purple/rainbow color for orbs
+
+        # Draw orb icon (small circle)
+        orb_icon_x = 1000
+        orb_icon_y = 14
+        pygame.draw.circle(hud_surf, orb_color, (orb_icon_x, orb_icon_y), 6)
+        pygame.draw.circle(hud_surf, (255, 255, 255), (orb_icon_x - 2, orb_icon_y - 2), 2)
+
+        # Draw orb count
+        orb_txt = FONT_SMALL.render(f"{available_orbs}/{total_orbs}", True, orb_color)
+        hud_surf.blit(orb_txt, (orb_icon_x + 10, orb_icon_y - 8))
+
     # Ability chips
-    x = 1040
+    x = 1100
     y = 12
     for aid in abilities:
         info = ABILITY_INFO.get(aid, {"short": aid[:3], "color": (200, 200, 200)})
@@ -268,11 +287,16 @@ class Game:
         self.health_pickups: List[HealthPickup] = []
         self.life_pickups: List[LifePickup] = []
         self.powerups: List[Powerup] = []
+        self.ability_orbs: List[AbilityOrb] = []
         self.exit_gate: ExitGate | None = None
 
         self.player: Player | None = None
         self.abilities: list[str] = []
         self.player_controller: PlayerController | None = None
+
+        # UI notifications
+        self.ability_orb_collected = False
+        self.ability_unlocked = None  # Set to ability name when unlocked
 
 
 
@@ -304,6 +328,7 @@ class Game:
             "help": HelpState(self),
             "name_entry": NameEntryState(self),
             "seed_entry": SeedEntryState(self),
+            "controls": ControlsViewerState(self),
         }
 
     def change_state(self, name: str) -> None:
@@ -339,6 +364,7 @@ class Game:
             life_rects,
             powerup_defs,
             phaseable_walls,
+            ability_orb_rects,
         ) = generate_level(
             seed=self.seed,
             diff_cfg=cfg,
@@ -368,6 +394,9 @@ class Game:
             ptype = p.get("type", "speed")
             if rect is not None:
                 self.powerups.append(Powerup(rect, ptype))
+
+        # Ability Orbs (rare collectibles for unlocking abilities)
+        self.ability_orbs = [AbilityOrb(r) for r in ability_orb_rects]
 
         # Exit gate entity (coin-gated)
         coin_total = len(self.coins)
@@ -464,6 +493,10 @@ class Game:
             self.debug,
         )
 
+        # Render Ability Orbs (with animations)
+        for orb in self.ability_orbs:
+            orb.draw(self.play_area, cam)
+
         # Player with proper colours
         player_color = COLOR_PLAYER
         if getattr(self.player, "is_shadow_stepping", False):
@@ -488,6 +521,7 @@ class Game:
             self.difficulty,
             self.abilities,
             self.game_time,
+            self.unlock_mgr,
         )
 
         self.logical.blit(self.play_area, (0, 0))

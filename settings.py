@@ -139,6 +139,30 @@ SHADOW_STEP_INVULN_TIME = 0.4  # Invulnerability window
 SHADOW_STEP_SPEED = 18.0  # Dash speed
 SHADOW_STEP_COOLDOWN = 0.5  # Cooldown between uses
 
+# ================= NEW MOVEMENT ABILITIES =================
+# Slide
+SLIDE_SPEED_MULT = 1.3  # Speed multiplier while sliding
+SLIDE_DURATION = 0.8  # Maximum slide duration
+SLIDE_MIN_SPEED = 3.0  # Minimum speed to maintain slide
+SLIDE_COOLDOWN = 0.3  # Cooldown after slide ends
+
+# Wall Cling
+WALL_CLING_SLIDE_SPEED = 1.0  # Slow slide down wall
+WALL_CLING_STAMINA = 5.0  # Maximum cling time (seconds)
+WALL_CLING_STAMINA_REGEN = 0.5  # Regen rate when not clinging
+
+# Air Dodge
+AIR_DODGE_SPEED = 14.0  # Dodge speed
+AIR_DODGE_DURATION = 0.25  # Dodge duration
+AIR_DODGE_INVULN_TIME = 0.3  # Invincibility frames
+AIR_DODGE_COOLDOWN = 1.0  # Cooldown between dodges
+AIR_DODGE_MAX_USES = 2  # Maximum uses per ground touch
+
+# Glide
+GLIDE_FALL_SPEED = 2.0  # Fall speed while gliding
+GLIDE_HORIZONTAL_MULT = 0.8  # Horizontal speed multiplier
+GLIDE_MAX_DURATION = 10.0  # Maximum glide time (optional limit)
+
 # ================= POWER-UPS =================
 POWERUP_TYPES = [
     ("speed", 35),      # (type, weight)

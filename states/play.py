@@ -64,6 +64,12 @@ class PlayState(GameState):
             if pup.try_collect(player, self.game):
                 self.game.powerups.remove(pup)
 
+        # Ability Orbs (update animations and check collection)
+        for orb in self.game.ability_orbs[:]:
+            orb.update(dt)
+            if orb.try_collect(player.rect, self.game):
+                self.game.ability_orbs.remove(orb)
+
         # Hazards (still rect-based in current build)
         for h in self.game.hazards:
             if player.rect.colliderect(h):
