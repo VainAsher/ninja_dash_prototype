@@ -11,6 +11,7 @@ import math
 from settings import (
     POWERUP_SPEED_DURATION, POWERUP_SPEED_FACTOR,
     POWERUP_TRIPLE_DURATION, POWERUP_TRIPLE_EXTRA_JUMPS,
+    POWERUP_EXTRA_JUMP_USES, POWERUP_EXTRA_JUMP_DAMAGE_LIMIT,
     POWERUP_MAGNET_DURATION, POWERUP_MAGNET_RADIUS,
     MAX_JUMPS,
 )
@@ -189,6 +190,116 @@ class TripleJump(Powerup):
         return info
 
 
+class ExtraJump(Powerup):
+    """
+    Extra jump powerup - grants a consumable extra jump.
+
+    Unlike TripleJump (duration-based), this powerup:
+    - Gives X uses of an extra jump
+    - OR expires after taking Y damage
+    - Works with 1 jump (becomes double) or 2 jumps (becomes triple)
+
+    Attributes:
+        uses_remaining: Number of extra jumps left
+        damage_limit: Maximum damage before expiration
+        damage_taken: Accumulated damage while active
+    """
+
+    def __init__(self, uses=None, damage_limit=None):
+        """
+        Initialize extra jump powerup.
+
+        Args:
+            uses: Number of extra jump uses (default from settings)
+            damage_limit: Damage threshold for expiration (default from settings)
+        """
+        super().__init__("EXTRA_JUMP", duration=999999)  # No time limit
+        self.max_uses = uses or POWERUP_EXTRA_JUMP_USES
+        self.uses_remaining = self.max_uses
+        self.damage_limit = damage_limit or POWERUP_EXTRA_JUMP_DAMAGE_LIMIT
+        self.damage_taken = 0.0
+
+    def activate(self, uses=None, damage_limit=None):
+        """
+        Activate extra jump powerup.
+
+        Args:
+            uses: Optional number of uses override
+            damage_limit: Optional damage limit override
+        """
+        super().activate()
+        if uses is not None:
+            self.max_uses = uses
+        self.uses_remaining = self.max_uses
+        self.damage_taken = 0.0
+        if damage_limit is not None:
+            self.damage_limit = damage_limit
+
+    def consume_use(self):
+        """
+        Consume one use of the extra jump.
+
+        Returns:
+            bool: True if use was consumed, False if no uses remaining
+        """
+        if not self.active or self.uses_remaining <= 0:
+            return False
+
+        self.uses_remaining -= 1
+
+        # Deactivate if out of uses
+        if self.uses_remaining <= 0:
+            self.deactivate()
+
+        return True
+
+    def take_damage(self, damage_amount):
+        """
+        Register damage taken while powerup is active.
+
+        Args:
+            damage_amount: Amount of damage taken (usually 1)
+
+        Returns:
+            bool: True if powerup is still active, False if expired
+        """
+        if not self.active:
+            return False
+
+        self.damage_taken += damage_amount
+
+        # Deactivate if damage limit reached
+        if self.damage_taken >= self.damage_limit:
+            self.deactivate()
+            return False
+
+        return True
+
+    def has_uses(self):
+        """Check if extra jump has uses remaining."""
+        return self.active and self.uses_remaining > 0
+
+    def get_extra_jumps(self):
+        """
+        Get the number of extra jumps granted (1 if active and has uses).
+
+        Returns:
+            int: 1 if active with uses, 0 otherwise
+        """
+        return 1 if self.has_uses() else 0
+
+    def on_expire(self):
+        """Called when extra jump expires."""
+        self.uses_remaining = 0
+
+    def get_debug_info(self):
+        info = super().get_debug_info()
+        if self.active:
+            info['uses'] = f"{self.uses_remaining}/{self.max_uses}"
+            info['damage'] = f"{self.damage_taken:.0f}/{self.damage_limit}"
+        return info
+
+
 class CoinMagnet(Powerup):
     """
     Coin magnet powerup - pulls coins toward player.
@@ -273,6 +384,7 @@ class PowerupManager:
         self.powerups = {
             'speed_boost': SpeedBoost(),
             'triple_jump': TripleJump(),
+            'extra_jump': ExtraJump(),
             'coin_magnet': CoinMagnet(),
         }
 
@@ -283,6 +395,10 @@ class PowerupManager:
     def activate_triple_jump(self, duration=None, extra_jumps=None):
         """Activate triple jump powerup."""
         self.powerups['triple_jump'].activate(duration, extra_jumps)
+
+    def activate_extra_jump(self, uses=None, damage_limit=None):
+        """Activate extra jump powerup (use-based or damage-based)."""
+        self.powerups['extra_jump'].activate(uses, damage_limit)
 
     def activate_coin_magnet(self, duration=None, radius=None):
         """Activate coin magnet powerup."""
@@ -303,8 +419,18 @@ class PowerupManager:
         return self.powerups['speed_boost'].get_speed_multiplier()
 
     def get_extra_jumps(self):
-        """Get current extra jumps from triple jump."""
-        return self.powerups['triple_jump'].get_extra_jumps()
+        """Get current extra jumps from all jump powerups."""
+        triple_jumps = self.powerups['triple_jump'].get_extra_jumps()
+        extra_jump = self.powerups['extra_jump'].get_extra_jumps()
+        return triple_jumps + extra_jump
+
+    def consume_extra_jump_use(self):
+        """Consume one use of the extra jump powerup."""
+        return self.powerups['extra_jump'].consume_use()
+
+    def register_damage(self, damage_amount):
+        """Register damage for powerups that track damage (extra_jump)."""
+        self.powerups['extra_jump'].take_damage(damage_amount)
 
     def get_magnet_radius(self):
         """Get current magnet radius."""
@@ -331,4 +457,4 @@ class PowerupManager:
 
 
 # Export powerup classes
-__all__ = ['Powerup', 'SpeedBoost', 'TripleJump', 'CoinMagnet', 'PowerupManager']
+__all__ = ['Powerup', 'SpeedBoost', 'TripleJump', 'ExtraJump', 'CoinMagnet', 'PowerupManager']

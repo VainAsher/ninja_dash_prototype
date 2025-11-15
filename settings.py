@@ -110,7 +110,12 @@ RUN_ACCEL_AIR = 0.5
 RUN_DECEL_AIR = 0.6
 
 GRAVITY = 0.7
-JUMP_POWER = 14.5
+
+# Jump system - differentiated jump mechanics
+JUMP_POWER = 14.5  # Base power for first jump (balanced)
+JUMP_POWER_SECOND = 10.0  # Reduced vertical power for second jump (more horizontal)
+JUMP_HORIZONTAL_BOOST_SECOND = 1.4  # Multiplier for horizontal velocity on second jump
+
 MAX_JUMPS = 2
 COYOTE_TIME = 0.12
 JUMP_BUFFER_TIME = 0.14
@@ -122,9 +127,11 @@ WALL_JUMP_POWER_X = 8.5
 WALL_JUMP_POWER_Y = 14.5
 WALL_JUMP_INPUT_LOCK = 0.12
 
-DASH_SPEED = 16.0
-DASH_DURATION = 0.16
-DASH_COOLDOWN = 0.45
+# Dash - now stamina-based run speed modifier
+DASH_STAMINA_MAX = 3.0  # Maximum stamina (seconds of dashing)
+DASH_STAMINA_DRAIN = 1.0  # Stamina drain per second while active
+DASH_STAMINA_REGEN = 0.8  # Stamina regen per second when inactive
+DASH_SPEED_MULT = 1.8  # Speed multiplier when dashing (1.8x normal speed)
 
 FAST_FALL_MULT = 2.4
 MAX_FALL_SPEED = 22.0
@@ -132,12 +139,14 @@ MAX_FALL_SPEED = 22.0
 CROUCH_SPEED_MULT = 0.95
 CROUCH_JUMP_MULT = 1.2
 
-# ================= SHADOW STEP ABILITY =================
+# ================= SHADOW STEP (SMOKE BOMB) ABILITY =================
+# Reworked as defensive evasion tool rather than offensive dash
 SHADOW_STEP_CHARGES = 3  # Charges per level
-SHADOW_STEP_DURATION = 0.75  # Phase duration
-SHADOW_STEP_INVULN_TIME = 0.4  # Invulnerability window
-SHADOW_STEP_SPEED = 18.0  # Dash speed
-SHADOW_STEP_COOLDOWN = 0.5  # Cooldown between uses
+SHADOW_STEP_DURATION = 0.85  # Smoke duration (slightly longer for positioning)
+SHADOW_STEP_INVULN_TIME = 0.85  # Full invulnerability during smoke (defensive focus)
+SHADOW_STEP_SPEED = 12.0  # Reduced speed (evasion/escape, not aggressive dash)
+SHADOW_STEP_COOLDOWN = 0.6  # Cooldown between uses
+SHADOW_STEP_PHASE_DOORS_ONLY = True  # Only phase through phaseable walls (doors), not floors
 
 # ================= NEW MOVEMENT ABILITIES =================
 # Slide
@@ -151,22 +160,26 @@ WALL_CLING_SLIDE_SPEED = 1.0  # Slow slide down wall
 WALL_CLING_STAMINA = 5.0  # Maximum cling time (seconds)
 WALL_CLING_STAMINA_REGEN = 0.5  # Regen rate when not clinging
 
-# Air Dodge
+# Air Dodge - with hang time for directional input
 AIR_DODGE_SPEED = 14.0  # Dodge speed
 AIR_DODGE_DURATION = 0.25  # Dodge duration
+AIR_DODGE_HANG_TIME = 0.15  # Hang time for directional input (brief pause)
+AIR_DODGE_HANG_GRAVITY_MULT = 0.1  # Reduced gravity during hang time
 AIR_DODGE_INVULN_TIME = 0.3  # Invincibility frames
 AIR_DODGE_COOLDOWN = 1.0  # Cooldown between dodges
 AIR_DODGE_MAX_USES = 2  # Maximum uses per ground touch
 
-# Glide
-GLIDE_FALL_SPEED = 2.0  # Fall speed while gliding
-GLIDE_HORIZONTAL_MULT = 0.8  # Horizontal speed multiplier
+# Glide - descent control with enhanced horizontal movement
+GLIDE_FALL_SPEED = 2.0  # Reduced fall speed while gliding
+GLIDE_HORIZONTAL_MULT = 1.3  # ENHANCED horizontal movement (was 0.8, now 1.3x)
 GLIDE_MAX_DURATION = 10.0  # Maximum glide time (optional limit)
+GLIDE_HORIZONTAL_ACCEL = 1.5  # Faster air control while gliding
 
 # ================= POWER-UPS =================
 POWERUP_TYPES = [
     ("speed", 35),      # (type, weight)
-    ("triple", 30),
+    ("triple", 20),     # Duration-based extra jump
+    ("extra_jump", 30), # Use/damage-based extra jump
     ("magnet", 35),
 ]
 
@@ -176,6 +189,10 @@ POWERUP_SPEED_FACTOR = 1.6
 
 POWERUP_TRIPLE_DURATION = 10.0
 POWERUP_TRIPLE_EXTRA_JUMPS = 1
+
+# Extra Jump powerup (use-based or damage-based)
+POWERUP_EXTRA_JUMP_USES = 5          # Number of extra jumps granted
+POWERUP_EXTRA_JUMP_DAMAGE_LIMIT = 2  # Expires after this much damage taken
 
 POWERUP_MAGNET_DURATION = 12.0
 POWERUP_MAGNET_RADIUS = 150.0
@@ -202,6 +219,7 @@ COLOR_SHADOW_STEP = (180, 100, 255)  # Player color during shadow step
 # Power-up colors
 COLOR_POWERUP_SPEED = (255, 200, 50)
 COLOR_POWERUP_TRIPLE = (100, 255, 200)
+COLOR_POWERUP_EXTRA_JUMP = (150, 255, 150)  # Light green for extra jump
 COLOR_POWERUP_MAGNET = (255, 215, 0)
 
 HUD_HEIGHT = 48
