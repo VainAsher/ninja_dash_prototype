@@ -21,8 +21,12 @@ from .generator import (
 
 from .decorations import (
     decorate_world,
-    add_ability_subrooms,
     build_solid_rects,
+)
+
+from .ability_features import (
+    add_ability_challenges,
+    add_ability_subrooms,
 )
 
 from .constants import (
@@ -57,6 +61,7 @@ __all__ = [
     'generate_hazards',
     'generate_coins_and_pickups',
     'generate_powerups',
+    'add_ability_challenges',
     'add_ability_subrooms',
     'build_solid_rects',
     'find_spawn',
