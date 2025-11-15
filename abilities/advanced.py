@@ -13,36 +13,47 @@ import pygame
 from abilities import Ability, ResourceAbility, CooldownAbility
 from settings import (
     SHADOW_STEP_CHARGES, SHADOW_STEP_DURATION, SHADOW_STEP_INVULN_TIME,
-    SHADOW_STEP_SPEED, SHADOW_STEP_COOLDOWN,
+    SHADOW_STEP_SPEED, SHADOW_STEP_COOLDOWN, SHADOW_STEP_PHASE_DOORS_ONLY,
     WALL_CLING_SLIDE_SPEED, WALL_CLING_STAMINA, WALL_CLING_STAMINA_REGEN,
-    AIR_DODGE_SPEED, AIR_DODGE_DURATION, AIR_DODGE_INVULN_TIME,
-    AIR_DODGE_COOLDOWN, AIR_DODGE_MAX_USES,
-    GLIDE_FALL_SPEED, GLIDE_HORIZONTAL_MULT, GLIDE_MAX_DURATION,
+    AIR_DODGE_SPEED, AIR_DODGE_DURATION, AIR_DODGE_HANG_TIME, AIR_DODGE_HANG_GRAVITY_MULT,
+    AIR_DODGE_INVULN_TIME, AIR_DODGE_COOLDOWN, AIR_DODGE_MAX_USES,
+    GLIDE_FALL_SPEED, GLIDE_HORIZONTAL_MULT, GLIDE_MAX_DURATION, GLIDE_HORIZONTAL_ACCEL,
 )
 
 
 class ShadowStep(ResourceAbility):
     """
-    Shadow step ability - invulnerable dash with charges.
+    Shadow Step (Smoke Bomb) - defensive evasion ability.
+
+    Reworked as a defensive tool rather than offensive dash:
+    - Creates smoke cloud for evasion and escape
+    - Full invulnerability during smoke (damage evasion)
+    - Can phase/dash through doors (phaseable walls)
+    - Slower movement than offensive dash (tactical repositioning)
+
+    Mechanics:
+    - Consumes 1 charge per use
+    - Grants invulnerability for full duration (defensive)
+    - Allows phasing through specially marked doors/walls
+    - Charges regenerate per level
 
     State:
     - charges: Number of charges remaining
-    - is_active: Whether shadow step is executing
-    - shadow_step_timer: Time remaining in shadow step
-    - invuln_timer: Invulnerability time remaining
-    - direction: Shadow step direction
+    - is_active: Whether smoke bomb is active
+    - smoke_timer: Time remaining in smoke cloud
+    - direction: Movement direction during smoke
     """
 
     def __init__(self):
         super().__init__("SHADOW_STEP", SHADOW_STEP_CHARGES, "charges")
         self.is_active = False
-        self.shadow_step_timer = 0.0
-        self.invuln_timer = 0.0
+        self.smoke_timer = 0.0
         self.direction = 1
         self.duration = SHADOW_STEP_DURATION
         self.speed = SHADOW_STEP_SPEED
         self.cooldown_timer = 0.0
         self.cooldown_duration = SHADOW_STEP_COOLDOWN
+        self.phase_doors_only = SHADOW_STEP_PHASE_DOORS_ONLY
 
     def can_use(self, player_state):
         """Can use if we have charges and not on cooldown."""
@@ -52,10 +63,10 @@ class ShadowStep(ResourceAbility):
 
     def use(self, player_state, input_state):
         """
-        Activate shadow step.
+        Activate smoke bomb for evasion and phasing.
 
         Returns:
-            dict: Movement modifications and invulnerability state
+            dict: Movement modifications, invulnerability, and phasing state
         """
         self.direction = player_state.get('facing', 1)
         if self.direction == 0:
@@ -63,64 +74,66 @@ class ShadowStep(ResourceAbility):
 
         self.consume_resource(1)
         self.is_active = True
-        self.shadow_step_timer = self.duration
-        self.invuln_timer = SHADOW_STEP_INVULN_TIME
+        self.smoke_timer = self.duration
 
         return {
             'vx': self.direction * self.speed,
-            'is_shadow_stepping': True,
+            'is_smoke_stepping': True,  # Renamed for clarity (smoke bomb)
             'is_dashing': False,  # Cancel regular dash
-            'invulnerable': True
+            'invulnerable': True,  # Full invuln for defensive use
+            'can_phase_doors': True,  # Can phase through doors/walls
+            'smoke_effect': True  # Visual indicator for smoke cloud
         }
 
     def update(self, dt, player_state):
-        """Update shadow step timer, cooldown, and invulnerability."""
+        """Update smoke timer, cooldown, and invulnerability."""
         # Update cooldown
         if self.cooldown_timer > 0:
             self.cooldown_timer = max(0.0, self.cooldown_timer - dt)
 
-        # Update shadow step
+        # Update smoke bomb
         if self.is_active:
-            self.shadow_step_timer -= dt
-            if self.shadow_step_timer <= 0:
+            self.smoke_timer -= dt
+            if self.smoke_timer <= 0:
                 self.is_active = False
                 self.cooldown_timer = self.cooldown_duration
-                # Invulnerability persists briefly after
-                self.invuln_timer = SHADOW_STEP_INVULN_TIME
-                return {'is_shadow_stepping': False}
+                return {
+                    'is_smoke_stepping': False,
+                    'invulnerable': False,
+                    'can_phase_doors': False,
+                    'smoke_effect': False
+                }
 
-            # Continue shadow step movement
+            # Continue smoke movement with full defensive benefits
             return {
                 'vx': self.direction * self.speed,
-                'is_shadow_stepping': True,
-                'invulnerable': True
+                'is_smoke_stepping': True,
+                'invulnerable': True,  # Invuln during entire duration
+                'can_phase_doors': True,
+                'smoke_effect': True
             }
-
-        # Update lingering invulnerability
-        if self.invuln_timer > 0:
-            self.invuln_timer = max(0.0, self.invuln_timer - dt)
-            return {'invulnerable': self.invuln_timer > 0}
 
         return {}
 
     def is_invulnerable(self):
-        """Check if player is currently invulnerable from shadow step."""
-        return self.is_active or self.invuln_timer > 0
+        """Check if player is currently invulnerable from smoke bomb."""
+        return self.is_active
+
+    def can_phase_through_doors(self):
+        """Check if player can currently phase through doors."""
+        return self.is_active
 
     def reset(self):
         """Reset charges and timers."""
         super().reset()
         self.is_active = False
-        self.shadow_step_timer = 0.0
-        self.invuln_timer = 0.0
+        self.smoke_timer = 0.0
         self.cooldown_timer = 0.0
 
     def get_debug_info(self):
         info = super().get_debug_info()
         if self.is_active:
-            info['status'] = f"active ({self.shadow_step_timer:.2f}s)"
-        elif self.invuln_timer > 0:
-            info['invuln'] = f"{self.invuln_timer:.2f}s"
+            info['status'] = f"smoke active ({self.smoke_timer:.2f}s)"
         if self.cooldown_timer > 0:
             info['cooldown'] = f"{self.cooldown_timer:.2f}s"
         return info
@@ -212,10 +225,19 @@ class WallCling(ResourceAbility):
 
 class AirDodge(CooldownAbility):
     """
-    Air dodge ability - directional dodge with invulnerability frames.
+    Air dodge ability - directional dodge with hang time and invulnerability.
+
+    Mechanics:
+    - Activation triggers brief "hang time" with reduced gravity
+    - Player can input direction during hang time
+    - After hang time, executes dodge in chosen direction
+    - Invulnerability frames during and after dodge
 
     State:
-    - is_active: Whether dodge is executing
+    - is_hanging: Whether in hang time (directional input phase)
+    - is_dodging: Whether dodge is executing
+    - hang_timer: Time remaining in hang phase
+    - dodge_timer: Time remaining in dodge phase
     - uses_left: Number of air dodges remaining (resets on ground)
     - direction: Dodge direction vector (x, y)
     - invuln_timer: Invulnerability time remaining
@@ -223,14 +245,23 @@ class AirDodge(CooldownAbility):
 
     def __init__(self):
         super().__init__("AIR_DODGE", AIR_DODGE_COOLDOWN)
-        self.is_active = False
+        self.is_hanging = False
+        self.is_dodging = False
+        self.hang_timer = 0.0
         self.dodge_timer = 0.0
         self.invuln_timer = 0.0
         self.uses_left = AIR_DODGE_MAX_USES
         self.max_uses = AIR_DODGE_MAX_USES
         self.direction = (1, 0)
-        self.duration = AIR_DODGE_DURATION
+        self.hang_duration = AIR_DODGE_HANG_TIME
+        self.dodge_duration = AIR_DODGE_DURATION
         self.speed = AIR_DODGE_SPEED
+        self.hang_gravity_mult = AIR_DODGE_HANG_GRAVITY_MULT
+
+    @property
+    def is_active(self):
+        """Dodge is active if hanging or dodging."""
+        return self.is_hanging or self.is_dodging
 
     def can_use(self, player_state):
         """Can dodge if in air, have uses, and not on cooldown."""
@@ -242,40 +273,54 @@ class AirDodge(CooldownAbility):
 
     def use(self, player_state, input_state):
         """
-        Activate air dodge in specified direction.
+        Activate air dodge - begins with hang time for directional input.
 
         Returns:
-            dict: Movement modifications and invulnerability
+            dict: Movement modifications for hang time
         """
+        # Start hang time phase
+        self.is_hanging = True
+        self.hang_timer = self.hang_duration
+        self.uses_left -= 1
+
+        # Store default direction (will be updated during hang time)
+        facing = player_state.get('facing', 1)
+        self.direction = (facing, 0)
+
+        return {
+            'is_air_dodge_hanging': True,
+            'gravity_mult': self.hang_gravity_mult,  # Reduced gravity
+            'vx_mult': 0.5,  # Slow horizontal movement during hang
+        }
+
+    def update_direction(self, input_state, player_state):
+        """
+        Update dodge direction during hang time based on input.
+
+        Args:
+            input_state: Current input state with dodge direction
+            player_state: Current player state
+        """
+        if not self.is_hanging:
+            return
+
         # Get dodge direction from input
         dodge_x = input_state.get('dodge_x', 0)
         dodge_y = input_state.get('dodge_y', 0)
         facing = player_state.get('facing', 1)
 
-        # Normalize direction
-        if dodge_x == 0 and dodge_y == 0:
-            dodge_x = facing  # Default to facing direction
-
-        length = math.sqrt(dodge_x * dodge_x + dodge_y * dodge_y)
-        if length > 0:
-            self.direction = (dodge_x / length, dodge_y / length)
+        # Update direction if input provided
+        if dodge_x != 0 or dodge_y != 0:
+            # Normalize direction
+            length = math.sqrt(dodge_x * dodge_x + dodge_y * dodge_y)
+            if length > 0:
+                self.direction = (dodge_x / length, dodge_y / length)
         else:
+            # Default to facing direction
             self.direction = (facing, 0)
 
-        self.is_active = True
-        self.dodge_timer = self.duration
-        self.invuln_timer = AIR_DODGE_INVULN_TIME
-        self.uses_left -= 1
-
-        return {
-            'vx': self.direction[0] * self.speed,
-            'vy': self.direction[1] * self.speed,
-            'is_air_dodging': True,
-            'invulnerable': True
-        }
-
     def update(self, dt, player_state):
-        """Update dodge timer, cooldown, and invulnerability."""
+        """Update hang time, dodge timer, cooldown, and invulnerability."""
         on_ground = player_state.get('on_ground', False)
 
         # Reset uses on ground
@@ -285,11 +330,38 @@ class AirDodge(CooldownAbility):
         # Update cooldown
         self.update_cooldown(dt)
 
+        # Update hang time
+        if self.is_hanging:
+            self.hang_timer -= dt
+            if self.hang_timer <= 0:
+                # Hang time over - execute dodge
+                self.is_hanging = False
+                self.is_dodging = True
+                self.dodge_timer = self.dodge_duration
+                self.invuln_timer = AIR_DODGE_INVULN_TIME
+
+                # Begin dodge movement
+                return {
+                    'vx': self.direction[0] * self.speed,
+                    'vy': self.direction[1] * self.speed,
+                    'is_air_dodge_hanging': False,
+                    'is_air_dodging': True,
+                    'invulnerable': True,
+                    'gravity_mult': 1.0  # Restore normal gravity
+                }
+
+            # Continue hang time
+            return {
+                'is_air_dodge_hanging': True,
+                'gravity_mult': self.hang_gravity_mult,
+                'vx_mult': 0.5
+            }
+
         # Update dodge
-        if self.is_active:
+        if self.is_dodging:
             self.dodge_timer -= dt
             if self.dodge_timer <= 0:
-                self.is_active = False
+                self.is_dodging = False
                 self.start_cooldown()
                 return {'is_air_dodging': False}
 
@@ -314,7 +386,9 @@ class AirDodge(CooldownAbility):
 
     def reset(self):
         """Reset dodge state."""
-        self.is_active = False
+        self.is_hanging = False
+        self.is_dodging = False
+        self.hang_timer = 0.0
         self.dodge_timer = 0.0
         self.invuln_timer = 0.0
         self.uses_left = self.max_uses
@@ -323,14 +397,21 @@ class AirDodge(CooldownAbility):
     def get_debug_info(self):
         info = super().get_debug_info()
         info['uses'] = f"{self.uses_left}/{self.max_uses}"
-        if self.is_active:
+        if self.is_hanging:
+            info['status'] = f"hang time ({self.hang_timer:.2f}s)"
+        elif self.is_dodging:
             info['status'] = f"dodging ({self.dodge_timer:.2f}s)"
         return info
 
 
 class Glide(Ability):
     """
-    Glide ability - slow descent while holding jump.
+    Glide ability - control descent with enhanced horizontal movement.
+
+    Mechanics:
+    - ONLY affects descent (vertical) movement - slows falling
+    - ENHANCES horizontal movement and air control
+    - Future: may interact with environmental up/down drafts
 
     State:
     - is_active: Whether currently gliding
@@ -342,7 +423,8 @@ class Glide(Ability):
         self.is_active = False
         self.glide_timer = 0.0
         self.fall_speed = GLIDE_FALL_SPEED
-        self.horizontal_mult = GLIDE_HORIZONTAL_MULT
+        self.horizontal_mult = GLIDE_HORIZONTAL_MULT  # Now > 1.0 for enhancement
+        self.horizontal_accel = GLIDE_HORIZONTAL_ACCEL
         self.max_duration = GLIDE_MAX_DURATION
 
     def can_use(self, player_state):
@@ -392,16 +474,21 @@ class Glide(Ability):
 
             # Apply glide physics
             vy = player_state.get('vy', 0)
-            vx = player_state.get('vx', 0)
 
             modifications = {'is_gliding': True}
 
-            # Cap fall speed
+            # ONLY modify descent - cap fall speed for controlled descent
             if vy > self.fall_speed:
                 modifications['vy'] = self.fall_speed
 
-            # Reduce horizontal speed
-            modifications['vx'] = vx * self.horizontal_mult
+            # ENHANCE horizontal movement (multiplier > 1.0)
+            # Also boost air control
+            modifications['horizontal_mult'] = self.horizontal_mult
+            modifications['air_accel_mult'] = self.horizontal_accel
+
+            # Note: horizontal velocity is NOT reduced, it's enhanced
+            # The player.py should apply horizontal_mult to max speed
+            # and air_accel_mult to acceleration
 
             return modifications
 

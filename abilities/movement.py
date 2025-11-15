@@ -9,24 +9,31 @@ This module contains the fundamental movement abilities:
 """
 
 import pygame
-from abilities import Ability, CooldownAbility
+from abilities import Ability, CooldownAbility, StaminaAbility
 from settings import (
-    JUMP_POWER, MAX_JUMPS,
-    DASH_SPEED, DASH_DURATION, DASH_COOLDOWN,
+    JUMP_POWER, JUMP_POWER_SECOND, JUMP_HORIZONTAL_BOOST_SECOND, MAX_JUMPS,
+    DASH_STAMINA_MAX, DASH_STAMINA_DRAIN, DASH_STAMINA_REGEN, DASH_SPEED_MULT,
     WALL_JUMP_POWER_X, WALL_JUMP_POWER_Y, WALL_JUMP_INPUT_LOCK,
     SLIDE_SPEED_MULT, SLIDE_DURATION, SLIDE_MIN_SPEED, SLIDE_COOLDOWN,
     COYOTE_TIME, JUMP_BUFFER_TIME,
     CROUCH_JUMP_MULT,
+    MAX_RUN_SPEED,
 )
 
 
 class DoubleJump(Ability):
     """
-    Multi-jump ability allowing jumps in air.
+    Multi-jump ability with differentiated jump mechanics.
 
     State:
     - jumps_left: Number of jumps remaining
     - max_jumps: Maximum jumps allowed (can be modified by powerups)
+    - jumps_used: Counter tracking which jump we're on
+
+    Jump Mechanics:
+    - First jump (ground/coyote): Balanced vertical + trajectory-based
+    - Second jump (air): More horizontal, less vertical
+    - Extra jumps (powerups): Similar to second jump mechanics
     """
 
     def __init__(self):
@@ -35,6 +42,7 @@ class DoubleJump(Ability):
         self.jumps_left = self.max_jumps
         self.jump_buffer_timer = 0.0
         self.coyote_timer = 0.0
+        self.jumps_used = 0  # Track which jump we're on
 
     def can_use(self, player_state):
         """Can use if we have jumps remaining or in coyote time."""
@@ -49,33 +57,62 @@ class DoubleJump(Ability):
 
     def use(self, player_state, input_state):
         """
-        Execute a jump.
+        Execute a jump with mechanics based on which jump this is.
+
+        First jump: Balanced vertical power, respects current momentum
+        Second+ jump: Reduced vertical, boosted horizontal for aerial control
 
         Returns:
             dict: Movement modifications including vertical velocity
         """
         on_ground = player_state.get('on_ground', False)
+        on_wall = player_state.get('on_wall', False)
         crouching = player_state.get('crouching', False)
         jump_power = player_state.get('jump_power', JUMP_POWER)
+        vx = player_state.get('vx', 0)
 
-        # Ground or coyote jump
+        # Ground or coyote jump (first jump)
         if on_ground or self.coyote_timer > 0:
             power = jump_power * (CROUCH_JUMP_MULT if crouching else 1.0)
             self.jumps_left = self.max_jumps - 1
+            self.jumps_used = 1
             self.coyote_timer = 0.0
             self.jump_buffer_timer = 0.0
+
+            # First jump: Balanced, maintains current momentum
             return {
                 'vy': -power,
                 'on_ground': False
             }
 
-        # Air jump (double/triple jump)
+        # Air jump (second jump or extra jumps from powerups)
         elif self.jumps_left > 0:
             self.jumps_left -= 1
+            self.jumps_used += 1
             self.jump_buffer_timer = 0.0
-            return {
-                'vy': -jump_power
+
+            # Second+ jump: More horizontal-focused
+            # Reduced vertical power, boost horizontal velocity
+            vertical_power = JUMP_POWER_SECOND
+
+            # If jumping from wall, give some upward boost (wall surface exception)
+            if on_wall:
+                vertical_power = JUMP_POWER * 0.85  # Slightly less than full jump
+
+            result = {
+                'vy': -vertical_power
             }
+
+            # Boost horizontal velocity for aerial maneuverability
+            if vx != 0:
+                # Boost existing horizontal movement
+                result['vx'] = vx * JUMP_HORIZONTAL_BOOST_SECOND
+            else:
+                # If not moving horizontally, give small boost in facing direction
+                facing = player_state.get('facing', 1)
+                result['vx'] = facing * MAX_RUN_SPEED * 0.5
+
+            return result
 
         return None
 
@@ -87,6 +124,7 @@ class DoubleJump(Ability):
         if on_ground:
             self.coyote_timer = COYOTE_TIME
             self.jumps_left = self.max_jumps  # Reset jumps on ground
+            self.jumps_used = 0  # Reset jump counter
         else:
             self.coyote_timer = max(0.0, self.coyote_timer - dt)
 
@@ -118,6 +156,7 @@ class DoubleJump(Ability):
         self.jumps_left = self.max_jumps
         self.jump_buffer_timer = 0.0
         self.coyote_timer = 0.0
+        self.jumps_used = 0
 
     def get_debug_info(self):
         info = super().get_debug_info()
@@ -126,65 +165,73 @@ class DoubleJump(Ability):
         return info
 
 
-class Dash(CooldownAbility):
+class Dash(StaminaAbility):
     """
-    Quick horizontal dash ability.
+    Stamina-based run speed modifier.
 
     State:
-    - is_active: Whether dash is currently executing
-    - dash_timer: Time remaining in dash
-    - direction: Dash direction (1 or -1)
+    - is_active: Whether dash is currently active
+    - resource (stamina): Remaining stamina
+
+    Mechanics:
+    - Hold to activate and increase run speed
+    - Drains stamina while active
+    - Regenerates stamina when not active
+    - Auto-deactivates when stamina depleted
     """
 
     def __init__(self):
-        super().__init__("DASH", DASH_COOLDOWN)
+        super().__init__(
+            "DASH",
+            max_stamina=DASH_STAMINA_MAX,
+            regen_rate=DASH_STAMINA_REGEN,
+            drain_rate=DASH_STAMINA_DRAIN
+        )
         self.is_active = False
-        self.dash_timer = 0.0
-        self.direction = 1
-        self.duration = DASH_DURATION
-        self.speed = DASH_SPEED
+        self.speed_multiplier = DASH_SPEED_MULT
 
     def can_use(self, player_state):
-        """Can dash if not already dashing and not on cooldown."""
-        return not self.is_active and not self.is_on_cooldown()
+        """Can activate dash if we have stamina available."""
+        return self.resource > 0
 
     def use(self, player_state, input_state):
         """
-        Activate dash.
+        Activate/toggle dash mode.
 
         Returns:
             dict: Movement modifications for dash
         """
-        self.direction = player_state.get('facing', 1)
-        if self.direction == 0:
-            self.direction = 1
-
-        self.is_active = True
-        self.dash_timer = self.duration
+        if not self.is_active and self.resource > 0:
+            self.is_active = True
 
         return {
-            'vx': self.direction * self.speed,
-            'is_dashing': True
+            'is_dashing': self.is_active,
+            'dash_speed_mult': self.speed_multiplier if self.is_active else 1.0
         }
 
+    def deactivate_dash(self):
+        """Manually deactivate dash (when player releases key)."""
+        self.is_active = False
+
     def update(self, dt, player_state):
-        """Update dash timer and cooldown."""
-        # Update cooldown
-        self.update_cooldown(dt)
-
-        # Update dash timer
+        """Update stamina drain/regen based on dash state."""
         if self.is_active:
-            self.dash_timer -= dt
-            if self.dash_timer <= 0:
+            # Drain stamina while dashing
+            if not self.drain_stamina(dt):
+                # Out of stamina - auto-deactivate
                 self.is_active = False
-                self.start_cooldown()
-                return {'is_dashing': False}
+                return {
+                    'is_dashing': False,
+                    'dash_speed_mult': 1.0
+                }
 
-            # Continue dash movement
             return {
-                'vx': self.direction * self.speed,
-                'is_dashing': True
+                'is_dashing': True,
+                'dash_speed_mult': self.speed_multiplier
             }
+        else:
+            # Regenerate stamina when not dashing
+            self.regenerate_stamina(dt)
 
         return {}
 
@@ -192,16 +239,19 @@ class Dash(CooldownAbility):
         """Check if dash is currently active."""
         return self.is_active
 
+    def get_stamina_percent(self):
+        """Get stamina as percentage (0.0 to 1.0)."""
+        return self.resource / self.max_resource
+
     def reset(self):
-        """Reset dash state."""
+        """Reset dash state and restore stamina."""
+        super().reset()
         self.is_active = False
-        self.dash_timer = 0.0
-        self.cooldown_timer = 0.0
 
     def get_debug_info(self):
         info = super().get_debug_info()
-        if self.is_active:
-            info['status'] = f"active ({self.dash_timer:.2f}s)"
+        info['status'] = "ACTIVE" if self.is_active else "ready"
+        info['stamina_pct'] = f"{self.get_stamina_percent()*100:.0f}%"
         return info
 
 
@@ -277,6 +327,10 @@ class Slide(CooldownAbility):
     - is_active: Whether slide is currently executing
     - slide_timer: Time remaining in slide
     - direction: Slide direction (1 or -1)
+
+    Note: Collision handling must be managed by player.py to prevent
+    glitching through terrain. The ability only provides velocity
+    modifications and state flags.
     """
 
     def __init__(self):
@@ -312,7 +366,8 @@ class Slide(CooldownAbility):
 
         return {
             'is_sliding': True,
-            'crouching': True  # Force crouch during slide
+            'crouching': True,  # Force crouch during slide
+            'check_collisions': True  # Flag to ensure collision checking is active
         }
 
     def update(self, dt, player_state):
@@ -323,18 +378,21 @@ class Slide(CooldownAbility):
         # Update slide timer
         if self.is_active:
             self.slide_timer -= dt
-            vx = abs(player_state.get('vx', 0))
+            vx = player_state.get('vx', 0)  # Keep original vx sign
+            speed = abs(vx)
 
             # End slide if time expires or too slow
-            if self.slide_timer <= 0 or vx < self.min_speed:
+            if self.slide_timer <= 0 or speed < self.min_speed:
                 self.is_active = False
                 self.start_cooldown()
                 return {'is_sliding': False}
 
-            # Continue slide movement
+            # Continue slide movement with speed boost
+            # Note: Apply multiplier to current speed, preserve direction
             return {
-                'vx': self.direction * vx * self.speed_mult,
-                'is_sliding': True
+                'vx_mult': self.speed_mult,  # Multiplier instead of direct set
+                'is_sliding': True,
+                'check_collisions': True
             }
 
         return {}

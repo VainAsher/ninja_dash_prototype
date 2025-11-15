@@ -197,5 +197,192 @@ class CooldownAbility(Ability):
         return info
 
 
+class StaminaAbility(ResourceAbility):
+    """
+    Base class for abilities that use stamina with automatic regeneration.
+    """
+
+    def __init__(self, name, max_stamina, regen_rate, drain_rate=0):
+        """
+        Initialize stamina-based ability.
+
+        Args:
+            name: Ability name
+            max_stamina: Maximum stamina amount
+            regen_rate: Stamina regeneration per second when not in use
+            drain_rate: Stamina drain per second when active (0 for instant consumption)
+        """
+        super().__init__(name, max_stamina, "stamina")
+        self.regen_rate = regen_rate
+        self.drain_rate = drain_rate
+
+    def regenerate_stamina(self, dt):
+        """
+        Regenerate stamina over time.
+
+        Args:
+            dt: Delta time since last frame
+        """
+        self.restore_resource(self.regen_rate * dt)
+
+    def drain_stamina(self, dt):
+        """
+        Drain stamina over time while active.
+
+        Args:
+            dt: Delta time since last frame
+
+        Returns:
+            bool: True if stamina was drained, False if depleted
+        """
+        drain_amount = self.drain_rate * dt
+        return self.consume_resource(drain_amount)
+
+    def get_debug_info(self):
+        """Include stamina regen info in debug output."""
+        info = super().get_debug_info()
+        info["regen_rate"] = f"{self.regen_rate}/s"
+        if self.drain_rate > 0:
+            info["drain_rate"] = f"{self.drain_rate}/s"
+        return info
+
+
+class AmmoAbility(Ability):
+    """
+    Base class for abilities that use consumable ammo/items.
+    Ammo must be collected and doesn't regenerate automatically.
+    """
+
+    def __init__(self, name, max_ammo=0, starting_ammo=0):
+        """
+        Initialize ammo-based ability.
+
+        Args:
+            name: Ability name
+            max_ammo: Maximum ammo capacity (0 = unlimited capacity)
+            starting_ammo: Starting ammo count
+        """
+        super().__init__(name)
+        self.max_ammo = max_ammo
+        self.ammo = starting_ammo
+
+    def consume_ammo(self, amount=1):
+        """
+        Consume ammo and return success status.
+
+        Args:
+            amount: Amount of ammo to consume
+
+        Returns:
+            bool: True if ammo was consumed, False if insufficient
+        """
+        if self.ammo >= amount:
+            self.ammo -= amount
+            return True
+        return False
+
+    def add_ammo(self, amount=1):
+        """
+        Add ammo up to maximum capacity.
+
+        Args:
+            amount: Amount of ammo to add
+
+        Returns:
+            int: Actual amount added (may be less if at capacity)
+        """
+        old_ammo = self.ammo
+        if self.max_ammo > 0:
+            self.ammo = min(self.max_ammo, self.ammo + amount)
+        else:
+            self.ammo += amount
+        return self.ammo - old_ammo
+
+    def has_ammo(self, amount=1):
+        """
+        Check if ability has sufficient ammo.
+
+        Args:
+            amount: Amount of ammo to check for
+
+        Returns:
+            bool: True if sufficient ammo available
+        """
+        return self.ammo >= amount
+
+    def reset(self):
+        """Reset ammo to starting amount (not max)."""
+        pass  # Ammo persists across resets unless explicitly refilled
+
+    def get_debug_info(self):
+        """Include ammo information in debug output."""
+        info = super().get_debug_info()
+        if self.max_ammo > 0:
+            info["ammo"] = f"{self.ammo}/{self.max_ammo}"
+        else:
+            info["ammo"] = str(self.ammo)
+        return info
+
+
+class CombinedCostAbility(CooldownAbility):
+    """
+    Base class for abilities that have both cooldown and resource costs.
+    Useful for abilities like "3 charges, each with a cooldown".
+    """
+
+    def __init__(self, name, cooldown_duration, max_charges, charge_regen_per_level=0):
+        """
+        Initialize ability with cooldown and charges.
+
+        Args:
+            name: Ability name
+            cooldown_duration: Cooldown time between uses in seconds
+            max_charges: Maximum number of charges
+            charge_regen_per_level: Charges restored when entering new level
+        """
+        super().__init__(name, cooldown_duration)
+        self.max_charges = max_charges
+        self.charges = max_charges
+        self.charge_regen_per_level = charge_regen_per_level
+
+    def consume_charge(self):
+        """
+        Consume a charge and return success status.
+
+        Returns:
+            bool: True if charge was consumed, False if no charges available
+        """
+        if self.charges > 0:
+            self.charges -= 1
+            return True
+        return False
+
+    def restore_charges(self, amount=None):
+        """
+        Restore charges up to maximum.
+
+        Args:
+            amount: Amount to restore, or None to restore all charges
+        """
+        if amount is None:
+            self.charges = self.max_charges
+        else:
+            self.charges = min(self.max_charges, self.charges + amount)
+
+    def reset(self):
+        """Reset charges based on regen settings."""
+        if self.charge_regen_per_level > 0:
+            self.restore_charges(self.charge_regen_per_level)
+        else:
+            self.restore_charges()  # Full restore
+        self.cooldown_timer = 0.0
+
+    def get_debug_info(self):
+        """Include both cooldown and charge information."""
+        info = super().get_debug_info()
+        info["charges"] = f"{self.charges}/{self.max_charges}"
+        return info
+
+
 # Export base classes
-__all__ = ['Ability', 'ResourceAbility', 'CooldownAbility']
+__all__ = ['Ability', 'ResourceAbility', 'CooldownAbility', 'StaminaAbility', 'AmmoAbility', 'CombinedCostAbility']
