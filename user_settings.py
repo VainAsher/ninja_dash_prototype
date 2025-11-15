@@ -106,7 +106,7 @@ class UserSettings:
         if self.overrides.get("branchiness_override") is not None:
             result["branchiness"] = self.overrides["branchiness_override"]
 
-        # Extra knobs used by level_gen.py
+        # Extra knobs used by level_gen package
         result["subroom_intensity"] = self.overrides.get("subroom_intensity", 0.5)
         result["enable_ability_challenges"] = self.overrides.get(
             "enable_ability_challenges", True
