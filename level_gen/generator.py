@@ -6,6 +6,7 @@ Procedural generation with optional challenges that reward enabled abilities.
 import random
 import pygame
 from collections import deque
+from typing import List, Tuple, Optional, Dict, Any
 
 from settings import (
     TILE_SIZE,
@@ -47,18 +48,18 @@ from .entity_placer import (
     generate_powerups,
     generate_ability_orbs,
 )
+from .structures import Room
 
 
-class Room:
-    def __init__(self, rx, ry):
-        self.rx = rx
-        self.ry = ry
-        self.open_up = self.open_down = False
-        self.open_left = self.open_right = False
+def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]], List[List[bool]]]:
+    """Build tile world from room path.
 
+    Args:
+        path: List of (x, y) tuples representing the room path
 
-def build_world_from_path(path):
-    """Build tile world from room path."""
+    Returns:
+        Tuple of (world, path_mask) where world is a 2D tile array and path_mask marks critical path tiles
+    """
     world = [[0 for _ in range(WORLD_W)] for _ in range(WORLD_H)]
     path_mask = [[False for _ in range(WORLD_W)] for _ in range(WORLD_H)]
 
@@ -132,8 +133,15 @@ def build_world_from_path(path):
     return world, path_mask
 
 
-def find_spawn(path):
-    """Find player spawn point at start of path."""
+def find_spawn(path: List[Tuple[int, int]]) -> Tuple[int, int]:
+    """Find player spawn point at start of path.
+
+    Args:
+        path: List of (x, y) tuples representing the room path
+
+    Returns:
+        Tuple of (spawn_x, spawn_y) in pixel coordinates
+    """
     start_rx, start_ry = path[0]
     base_x = start_rx * ROOM_W; base_y = start_ry * ROOM_H
     floor_y = base_y + ROOM_H - 3
@@ -141,17 +149,22 @@ def find_spawn(path):
     return sx * TILE_SIZE, sy * TILE_SIZE
 
 
-def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=DEFAULT_PHASEABLE_WALL_CHANCE):
+def mark_phaseable_walls(
+    tiles: List[pygame.Rect],
+    world: List[List[int]],
+    rng: random.Random,
+    phaseable_wall_chance: float = DEFAULT_PHASEABLE_WALL_CHANCE
+) -> List[pygame.Rect]:
     """
     Mark certain walls as phaseable (can be passed through with Shadow Step).
     Excludes boundary walls to prevent escaping the level.
-    
+
     Args:
         tiles: List of tile rectangles
         world: 2D world array
         rng: Random number generator
         phaseable_wall_chance: Probability of marking a wall as phaseable
-        
+
     Returns:
         List of phaseable wall rectangles
     """
@@ -182,17 +195,44 @@ def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=DEFAULT_PHASEA
     return phaseable
 
 
-def generate_level(seed=None, diff_cfg=None, abilities=None):
+def generate_level(
+    seed: Optional[int] = None,
+    diff_cfg: Optional[Dict[str, Any]] = None,
+    abilities: Optional[List[str]] = None
+) -> Tuple[
+    List[List[int]],
+    List[pygame.Rect],
+    pygame.Rect,
+    Tuple[int, int],
+    List[pygame.Rect],
+    List[pygame.Rect],
+    List[pygame.Rect],
+    List[pygame.Rect],
+    List[Dict[str, Any]],
+    List[pygame.Rect],
+    List[pygame.Rect]
+]:
     """
     Generate a complete level with ability-aware features.
 
     Args:
         seed: Random seed
-        diff_cfg: Difficulty configuration
-        abilities: List of enabled abilities
+        diff_cfg: Difficulty configuration dictionary
+        abilities: List of enabled ability strings
 
     Returns:
         Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs)
+        - world: 2D tile array
+        - tiles: List of solid tile rectangles
+        - exit_rect: Exit rectangle
+        - spawn: Player spawn point (x, y) in pixels
+        - coins: List of coin rectangles
+        - hazards: List of hazard rectangles
+        - healths: List of health pickup rectangles
+        - lives: List of extra life rectangles
+        - powerups: List of powerup dictionaries with 'rect' and 'type' keys
+        - phaseable_walls: List of phaseable wall rectangles (for Shadow Step)
+        - ability_orbs: List of ability orb rectangles
     """
     cfg = diff_cfg or {}
     abilities = abilities or []

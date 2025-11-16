@@ -3,7 +3,9 @@ Decoration System Module
 Handles platforms, pillars, holes, and ability-specific subrooms.
 """
 
+import random
 import pygame
+from typing import List, Tuple, Optional, Any
 
 from settings import (
     TILE_SIZE,
@@ -20,8 +22,24 @@ from .constants import (
 )
 
 
-def decorate_world(world, path_mask, rng, **kwargs):
-    """Add platforms, pillars, and holes to world."""
+def decorate_world(
+    world: List[List[int]],
+    path_mask: List[List[bool]],
+    rng: random.Random,
+    **kwargs: Any
+) -> None:
+    """Add platforms, pillars, and holes to world.
+
+    Args:
+        world: 2D tile array (modified in-place)
+        path_mask: 2D bool array marking critical path tiles
+        rng: Random number generator
+        **kwargs: Optional keyword arguments:
+            - platform_band_step: Vertical spacing between platform bands
+            - platform_len_range: Tuple of (min, max) platform length
+            - pillar_chance: Probability of adding pillars to a room
+            - hole_chance: Probability of adding holes to a room
+    """
     platform_band_step = kwargs.get('platform_band_step', DEFAULT_PLATFORM_BAND_STEP)
     platform_len_range = kwargs.get('platform_len_range', DEFAULT_PLATFORM_LEN_RANGE)
     pillar_chance = kwargs.get('pillar_chance', DEFAULT_PILLAR_CHANCE)
@@ -69,8 +87,16 @@ def decorate_world(world, path_mask, rng, **kwargs):
                                     world[yy][xx] = 0
 
 
-def build_solid_rects(world):
-    """Convert world grid to solid rect list."""
+def build_solid_rects(world: List[List[int]]) -> Tuple[List[pygame.Rect], pygame.Rect]:
+    """Convert world grid to solid rect list.
+
+    Args:
+        world: 2D tile array where 1=solid, 2=exit, 0=air
+
+    Returns:
+        Tuple of (tiles, exit_rect) where tiles is a list of solid tile rectangles
+        and exit_rect is the exit rectangle
+    """
     tiles = []; exit_rect = None
     for y in range(WORLD_H):
         for x in range(WORLD_W):

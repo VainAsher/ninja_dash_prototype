@@ -3,7 +3,9 @@ Ability Features Module
 Handles ability-aware coin patterns and ability-specific challenge subrooms.
 """
 
+import random
 import pygame
+from typing import List
 
 from settings import (
     TILE_SIZE,
@@ -18,7 +20,12 @@ from .constants import (
 )
 
 
-def add_ability_challenges(world, coins, rng, abilities):
+def add_ability_challenges(
+    world: List[List[int]],
+    coins: List[pygame.Rect],
+    rng: random.Random,
+    abilities: List[str]
+) -> None:
     """
     Add optional coin patterns that reward specific abilities.
 
@@ -71,13 +78,19 @@ def add_ability_challenges(world, coins, rng, abilities):
                         coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
 
 
-def add_ability_subrooms(world, path_mask, rng, abilities, intensity):
+def add_ability_subrooms(
+    world: List[List[int]],
+    path_mask: List[List[bool]],
+    rng: random.Random,
+    abilities: List[str],
+    intensity: float
+) -> None:
     """
     Add optional ability-specific challenge subrooms.
     These reward players who have unlocked specific abilities.
 
     Args:
-        world: 2D level array
+        world: 2D level array (modified in-place)
         path_mask: 2D bool array marking critical path
         rng: Random number generator
         abilities: List of enabled ability strings

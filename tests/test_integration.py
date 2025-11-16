@@ -11,9 +11,9 @@ from level_gen.generator import (
     build_world_from_path,
     find_spawn,
     mark_phaseable_walls,
-    Room
 )
 from level_gen.maze_generator import generate_macro_maze, find_room_path
+from level_gen.structures import Room
 from settings import (
     TILE_SIZE,
     ROOM_COLS, ROOM_ROWS,
