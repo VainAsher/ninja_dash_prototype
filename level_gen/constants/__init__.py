@@ -1,23 +1,19 @@
 """
-Level Generation Constants and Default Configuration Values
+Constants Package - Organized configuration values for level generation
 
-This module re-exports all constants from organized submodules for backward compatibility.
-New code should import from the specific submodules (maze, decoration, entities, abilities).
-
-Submodules:
-    - constants.maze: Maze generation parameters
-    - constants.decoration: Platform, pillar, and hole configuration
-    - constants.entities: Hazard and pickup spawn rates
-    - constants.abilities: Ability system configuration
+Separates constants into logical categories for better organization:
+- maze: Maze generation parameters
+- decoration: Platform, pillar, and hole generation
+- entities: Hazards and pickup spawn rates
+- abilities: Ability system configuration
 """
 
-# For backward compatibility, import and re-export all constants from submodules
-from .constants.maze import (
+from .maze import (
     DEFAULT_VERTICALITY_BIAS,
     DEFAULT_BRANCHINESS,
 )
 
-from .constants.decoration import (
+from .decoration import (
     DEFAULT_PLATFORM_BAND_STEP,
     DEFAULT_PLATFORM_LEN_RANGE,
     DEFAULT_PILLAR_CHANCE,
@@ -25,7 +21,7 @@ from .constants.decoration import (
     ROOM_FLOOR_OFFSET,
 )
 
-from .constants.entities import (
+from .entities import (
     DEFAULT_HAZARD_RATE,
     DEFAULT_COIN_DENSITY,
     DEFAULT_HEALTH_DENSITY,
@@ -35,7 +31,7 @@ from .constants.entities import (
     MAX_SPAWN_ATTEMPTS,
 )
 
-from .constants.abilities import (
+from .abilities import (
     DEFAULT_ABILITY_ORB_SPAWN_RATE,
     DEFAULT_PHASEABLE_WALL_CHANCE,
     DEFAULT_ENABLE_ABILITY_SUBROOMS,
@@ -45,19 +41,25 @@ from .constants.abilities import (
     SUBROOM_EMPTY_THRESHOLD,
 )
 
-# Re-export all for backward compatibility
 __all__ = [
+    # Maze
     'DEFAULT_VERTICALITY_BIAS',
     'DEFAULT_BRANCHINESS',
+    # Decoration
     'DEFAULT_PLATFORM_BAND_STEP',
     'DEFAULT_PLATFORM_LEN_RANGE',
     'DEFAULT_PILLAR_CHANCE',
     'DEFAULT_HOLE_CHANCE',
+    'ROOM_FLOOR_OFFSET',
+    # Entities
     'DEFAULT_HAZARD_RATE',
     'DEFAULT_COIN_DENSITY',
     'DEFAULT_HEALTH_DENSITY',
     'DEFAULT_LIVES_PER_LEVEL',
     'DEFAULT_POWERUP_DENSITY',
+    'HAZARD_SAFE_RADIUS',
+    'MAX_SPAWN_ATTEMPTS',
+    # Abilities
     'DEFAULT_ABILITY_ORB_SPAWN_RATE',
     'DEFAULT_PHASEABLE_WALL_CHANCE',
     'DEFAULT_ENABLE_ABILITY_SUBROOMS',
@@ -65,13 +67,4 @@ __all__ = [
     'DEFAULT_ENABLE_ABILITY_CHALLENGES',
     'CHALLENGE_ATTEMPTS',
     'SUBROOM_EMPTY_THRESHOLD',
-    'HAZARD_SAFE_RADIUS',
-    'MAX_SPAWN_ATTEMPTS',
-    'ROOM_FLOOR_OFFSET',
 ]
-
-# Note: For detailed documentation of each constant, see the respective submodules:
-#   - level_gen.constants.maze for maze generation constants
-#   - level_gen.constants.decoration for decoration constants
-#   - level_gen.constants.entities for entity spawn constants
-#   - level_gen.constants.abilities for ability system constants
