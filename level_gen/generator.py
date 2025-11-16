@@ -6,7 +6,7 @@ Procedural generation with optional challenges that reward enabled abilities.
 import random
 import pygame
 from collections import deque
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, Union
 
 from settings import (
     TILE_SIZE,
@@ -18,6 +18,7 @@ from settings import (
     COLOR_POWERUP_TRIPLE, COLOR_POWERUP_MAGNET,
 )
 
+from .config import LevelGenConfig
 from .constants import (
     DEFAULT_VERTICALITY_BIAS,
     DEFAULT_BRANCHINESS,
@@ -61,7 +62,10 @@ def _build_room_floors(
     path: List[Tuple[int, int]]
 ) -> Dict[Tuple[int, int], int]:
     """
-    Build floors for each room in the path.
+    Build horizontal floors in each room along the critical path.
+
+    Creates a solid floor near the bottom of each room, leaving space for
+    decorations and vertical movement. Clears airspace above the floor.
 
     Args:
         world: 2D tile array (modified in-place)
@@ -70,6 +74,22 @@ def _build_room_floors(
 
     Returns:
         Dictionary mapping room coordinates to their floor y-coordinate
+
+    Visual Layout (single room):
+        ║              ║  top of room
+        ║              ║
+        ║              ║  open space
+        ║              ║
+        ║              ║  cleared (floor_y - 2)
+        ║              ║  cleared (floor_y - 1)
+        ║══════════════║  floor (floor_y = base_y + ROOM_H - ROOM_FLOOR_OFFSET)
+        ║##############║  (unused space below floor)
+        ╚══════════════╝  room bottom
+
+    Floor Properties:
+        - Spans full room width minus 2-tile margin on each side
+        - Height: ROOM_FLOOR_OFFSET tiles from room bottom
+        - Clearance: 2 tiles above floor cleared for movement
     """
     floor_y_for = {}
 
@@ -102,16 +122,31 @@ def _connect_horizontal_rooms(
     floor_y: int
 ) -> None:
     """
-    Connect two horizontally adjacent rooms.
+    Connect two horizontally adjacent rooms with a floor corridor.
+
+    Creates a horizontal walkway between two side-by-side rooms by extending
+    the floor from one room's edge to the other, with clearance above.
 
     Args:
         world: 2D tile array (modified in-place)
         path_mask: 2D bool array marking critical path (modified in-place)
         rx: Current room x-coordinate
         ry: Current room y-coordinate
-        nx: Next room x-coordinate
-        ny: Next room y-coordinate
+        nx: Next room x-coordinate (must be rx±1)
+        ny: Next room y-coordinate (must equal ry)
         floor_y: Floor y-coordinate for the connection
+
+    Visual Layout (moving right, rx=0 to nx=1):
+        Room 0          Room 1
+        ########║       ║########
+        ........ ║       ║ ........
+        ........ ║       ║ ........
+        ========╬═══════╬======== floor_y
+                └───────┘
+                corridor
+
+    Corridor extends from right edge of left room to left edge of right room.
+    Two rows above floor are cleared for player movement.
     """
     base_x1 = rx * ROOM_W
     base_x2 = nx * ROOM_W
@@ -149,17 +184,39 @@ def _connect_vertical_rooms(
     fy_low: int
 ) -> None:
     """
-    Connect two vertically adjacent rooms with shaft and platforms.
+    Connect two vertically adjacent rooms with a climbable shaft.
+
+    Creates a vertical passage with alternating platforms to allow the player
+    to traverse between rooms at different heights. The shaft is carved through
+    the middle of the room with platforms staggered for jumping.
 
     Args:
         world: 2D tile array (modified in-place)
         path_mask: 2D bool array marking critical path (modified in-place)
-        rx: Current room x-coordinate
+        rx: Current room x-coordinate (must equal nx)
         ry: Current room y-coordinate
-        nx: Next room x-coordinate
-        ny: Next room y-coordinate
-        fy_high: Floor y-coordinate of higher room
-        fy_low: Floor y-coordinate of lower room
+        nx: Next room x-coordinate (must equal rx)
+        ny: Next room y-coordinate (must be ry±1)
+        fy_high: Floor y-coordinate of higher room (lower y value)
+        fy_low: Floor y-coordinate of lower room (higher y value)
+
+    Visual Layout (vertical shaft with alternating platforms):
+        ════════════  fy_high (top room floor)
+             ║║║       shaft opening
+             ║║║
+          ══╬║║╬══    platform (left side)
+             ║║║
+             ║║║
+        ══╬║║╬       platform (right side)
+           ║║║
+           ║║║
+        ══════════    fy_low (bottom room floor)
+
+    Shaft Details:
+        - Width: 3 tiles centered in room
+        - Platforms: Alternating sides every 4 tiles vertically
+        - Platform size: 2 tiles wide
+        - Clearance: 2 tiles above each floor entrance
     """
     base_x = rx * ROOM_W
     x_mid = base_x + ROOM_W // 2
@@ -227,13 +284,47 @@ def _place_exit(
 
 
 def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]], List[List[bool]]]:
-    """Build tile world from room path.
+    """Build tile world from room path with floors, connections, and exit.
+
+    Constructs a complete playable level from a sequence of room coordinates by:
+    1. Creating bordered world with solid edges
+    2. Building floors in each room at a consistent height
+    3. Connecting adjacent rooms (horizontal hallways, vertical shafts)
+    4. Placing exit gate at the end of the path
 
     Args:
-        path: List of (x, y) tuples representing the room path
+        path: Ordered list of (x, y) room coordinate tuples defining the critical path
+              from start to goal. Typically starts at (0, ROOM_ROWS-1) and ends
+              at (ROOM_COLS-1, 0). Adjacent rooms must differ by exactly 1 in
+              either x or y coordinate.
 
     Returns:
-        Tuple of (world, path_mask) where world is a 2D tile array and path_mask marks critical path tiles
+        Tuple of (world, path_mask):
+        - world: 2D tile array [WORLD_H][WORLD_W] where:
+          - 0 = air/empty space
+          - 1 = solid tile/wall
+          - 2 = exit gate
+        - path_mask: 2D boolean array [WORLD_H][WORLD_W] marking tiles that are
+          part of the critical path (should not be obstructed by decorations)
+
+    Example:
+        >>> # Generate simple 3-room horizontal path
+        >>> path = [(0, 5), (1, 5), (2, 5)]
+        >>> world, path_mask = build_world_from_path(path)
+        >>> # world[y][x] contains tile values
+        >>> # path_mask[y][x] is True for critical path tiles
+
+    Edge Cases:
+        - Empty path: Will create bordered world but no playable content
+        - Single room path: Creates one room with exit but no connections
+        - Non-adjacent rooms: Will skip invalid connections (rooms must be adjacent)
+        - Path with loops: Each connection is processed in order; loops are fine
+
+    Technical Details:
+        - Room floors are placed at: room_base_y + ROOM_H - ROOM_FLOOR_OFFSET
+        - Horizontal connections span the gap between room edges
+        - Vertical connections create shaft with alternating platform steps
+        - Exit is always placed at right edge of final room
     """
     # Initialize world and path mask
     world = [[0 for _ in range(WORLD_W)] for _ in range(WORLD_H)]
@@ -285,13 +376,34 @@ def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]],
 
 
 def find_spawn(path: List[Tuple[int, int]]) -> Tuple[int, int]:
-    """Find player spawn point at start of path.
+    """Calculate safe player spawn point at the start of the level path.
+
+    Places the player spawn at the beginning of the critical path (first room),
+    positioned on the floor with clearance above for the player entity.
 
     Args:
-        path: List of (x, y) tuples representing the room path
+        path: List of (x, y) room coordinate tuples. Only the first element is used.
 
     Returns:
-        Tuple of (spawn_x, spawn_y) in pixel coordinates
+        Tuple of (spawn_x, spawn_y) in pixel coordinates (not tile coordinates).
+        Spawn point is positioned:
+        - Horizontally: 3 tiles from left edge of starting room
+        - Vertically: 2 tiles above the room floor
+
+    Example:
+        >>> path = [(0, 5), (1, 5), (2, 5)]
+        >>> spawn_x, spawn_y = find_spawn(path)
+        >>> # Returns pixel coordinates for player start position
+        >>> spawn_x % TILE_SIZE == 0  # Aligned to tile grid
+        True
+
+    Edge Cases:
+        - Empty path: Will cause IndexError (path must have at least 1 room)
+        - Spawn coordinates are NOT bounds-checked against world dimensions
+
+    Note:
+        Spawn coordinates must match the floor height calculated in build_world_from_path()
+        to ensure player starts on solid ground.
     """
     start_rx, start_ry = path[0]
     base_x = start_rx * ROOM_W; base_y = start_ry * ROOM_H
@@ -307,17 +419,49 @@ def mark_phaseable_walls(
     phaseable_wall_chance: float = DEFAULT_PHASEABLE_WALL_CHANCE
 ) -> List[pygame.Rect]:
     """
-    Mark certain walls as phaseable (can be passed through with Shadow Step).
-    Excludes boundary walls to prevent escaping the level.
+    Designate vertical walls that can be phased through with Shadow Step ability.
+
+    Randomly selects a subset of vertical interior walls to mark as phaseable,
+    allowing players with the Shadow Step ability to pass through them. This
+    creates shortcuts and alternate paths for advanced players.
 
     Args:
-        tiles: List of tile rectangles
-        world: 2D world array
-        rng: Random number generator
-        phaseable_wall_chance: Probability of marking a wall as phaseable
+        tiles: List of all solid tile rectangles in the level
+        world: 2D tile array where 1=solid, 0=air
+        rng: Seeded random number generator for deterministic selection
+        phaseable_wall_chance: Probability (0.0-1.0) of marking each eligible wall
+                               as phaseable. Default: 0.35 (35%)
 
     Returns:
-        List of phaseable wall rectangles
+        List of pygame.Rect objects representing walls that can be phased through.
+        Subset of input tiles list.
+
+    Selection Criteria:
+        - Must be a vertical wall (air on left OR right side)
+        - Must NOT be on level boundary (prevents escaping)
+        - Must be solid tile (world[ty][tx] == 1)
+        - Randomly selected based on phaseable_wall_chance
+
+    Example:
+        >>> import random
+        >>> tiles = [pygame.Rect(x*32, y*32, 32, 32) for ...]  # All walls
+        >>> world = [[1, 0, 1], [1, 0, 1], ...]  # Level grid
+        >>> rng = random.Random(42)
+        >>> phaseable = mark_phaseable_walls(tiles, world, rng, 0.5)
+        >>> len(phaseable) < len(tiles)  # Subset of original tiles
+        True
+        >>> all(t in tiles for t in phaseable)  # All are from original set
+        True
+
+    Edge Cases:
+        - No eligible walls: Returns empty list
+        - phaseable_wall_chance = 0.0: Returns empty list
+        - phaseable_wall_chance = 1.0: Returns all eligible vertical walls
+        - Boundary walls: Always excluded regardless of chance
+
+    Performance:
+        O(n) where n = len(tiles). Checks each tile once with simple boundary
+        and adjacency tests.
     """
     phaseable = []
 
@@ -347,8 +491,9 @@ def mark_phaseable_walls(
 
 def generate_level(
     seed: Optional[int] = None,
-    diff_cfg: Optional[Dict[str, Any]] = None,
-    abilities: Optional[List[str]] = None
+    diff_cfg: Optional[Union[Dict[str, Any], LevelGenConfig]] = None,
+    abilities: Optional[List[str]] = None,
+    config: Optional[LevelGenConfig] = None,
 ) -> Tuple[
     List[List[int]],
     List[pygame.Rect],
@@ -366,9 +511,10 @@ def generate_level(
     Generate a complete level with ability-aware features.
 
     Args:
-        seed: Random seed
-        diff_cfg: Difficulty configuration dictionary
-        abilities: List of enabled ability strings
+        seed: Random seed for deterministic generation
+        diff_cfg: (Deprecated) Difficulty configuration dictionary. Use `config` parameter instead.
+        abilities: List of enabled ability strings (e.g., ['DOUBLE_JUMP', 'DASH'])
+        config: Type-safe LevelGenConfig instance (recommended over diff_cfg)
 
     Returns:
         Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs)
@@ -383,16 +529,40 @@ def generate_level(
         - powerups: List of powerup dictionaries with 'rect' and 'type' keys
         - phaseable_walls: List of phaseable wall rectangles (for Shadow Step)
         - ability_orbs: List of ability orb rectangles
+
+    Example:
+        >>> # Using new config parameter (recommended)
+        >>> from level_gen.config import LevelGenConfig, HARD_CONFIG
+        >>> world, *rest = generate_level(seed=42, config=HARD_CONFIG)
+
+        >>> # Using old dict-based config (backward compatible)
+        >>> old_cfg = {'hazard_rate': 0.05, 'coin_density': 0.04}
+        >>> world, *rest = generate_level(seed=42, diff_cfg=old_cfg)
+
+        >>> # With abilities enabled
+        >>> abilities = ['DOUBLE_JUMP', 'WALL_JUMP', 'DASH']
+        >>> world, *rest = generate_level(seed=42, config=HARD_CONFIG, abilities=abilities)
     """
-    cfg = diff_cfg or {}
+    # Handle configuration parameter priority: config > diff_cfg > defaults
+    if config is not None:
+        cfg = config
+    elif diff_cfg is not None:
+        # Convert dict to LevelGenConfig for type safety
+        if isinstance(diff_cfg, dict):
+            cfg = LevelGenConfig.from_dict(diff_cfg)
+        else:
+            cfg = diff_cfg
+    else:
+        cfg = LevelGenConfig()
+
     abilities = abilities or []
     rng = random.Random(seed)
 
     # Generate maze
     rooms = generate_macro_maze(
         ROOM_COLS, ROOM_ROWS, rng,
-        verticality_bias=cfg.get("verticality_bias", DEFAULT_VERTICALITY_BIAS),
-        branchiness=cfg.get("branchiness", DEFAULT_BRANCHINESS),
+        verticality_bias=cfg.verticality_bias,
+        branchiness=cfg.branchiness,
     )
 
     # Find path
@@ -407,46 +577,45 @@ def generate_level(
     # Decorate
     decorate_world(
         world, path_mask, rng,
-        platform_band_step=cfg.get("platform_band_step", DEFAULT_PLATFORM_BAND_STEP),
-        platform_len_range=cfg.get("platform_len_range", DEFAULT_PLATFORM_LEN_RANGE),
-        pillar_chance=cfg.get("pillar_chance", DEFAULT_PILLAR_CHANCE),
-        hole_chance=cfg.get("hole_chance", DEFAULT_HOLE_CHANCE),
+        platform_band_step=cfg.platform_band_step,
+        platform_len_range=cfg.platform_len_range,
+        pillar_chance=cfg.pillar_chance,
+        hole_chance=cfg.hole_chance,
     )
 
     # Add ability-gated subrooms
-    if cfg.get('enable_ability_subrooms', DEFAULT_ENABLE_ABILITY_SUBROOMS):
-        intensity = cfg.get('subroom_intensity', DEFAULT_SUBROOM_INTENSITY)
-        add_ability_subrooms(world, path_mask, rng, abilities, intensity)
+    if cfg.enable_ability_subrooms:
+        add_ability_subrooms(world, path_mask, rng, abilities, cfg.subroom_intensity)
 
     # Build solids
     tiles, exit_rect = build_solid_rects(world)
 
     # Generate hazards
-    hazards = generate_hazards(world, rng, rate=cfg.get("hazard_rate", DEFAULT_HAZARD_RATE))
+    hazards = generate_hazards(world, rng, rate=cfg.hazard_rate)
 
     # Generate pickups
     coins, healths, lives = generate_coins_and_pickups(
         world, rng,
-        coin_density=cfg.get("coin_density", DEFAULT_COIN_DENSITY),
-        health_density=cfg.get("health_density", DEFAULT_HEALTH_DENSITY),
-        lives_per_level=cfg.get("lives_per_level", DEFAULT_LIVES_PER_LEVEL),
+        coin_density=cfg.coin_density,
+        health_density=cfg.health_density,
+        lives_per_level=cfg.lives_per_level,
         hazards=hazards
     )
 
     # Add ability-aware coin challenges
-    if cfg.get('enable_ability_challenges', DEFAULT_ENABLE_ABILITY_CHALLENGES):
+    if cfg.enable_ability_challenges:
         add_ability_challenges(world, coins, rng, abilities)
 
     # Generate power-ups
-    powerups = generate_powerups(world, rng, density=cfg.get("powerup_density", DEFAULT_POWERUP_DENSITY))
+    powerups = generate_powerups(world, rng, density=cfg.powerup_density)
 
     # Generate Ability Orbs (RARE - 0.3% spawn rate)
-    ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.get("ability_orb_spawn_rate", DEFAULT_ABILITY_ORB_SPAWN_RATE))
+    ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.ability_orb_spawn_rate)
 
     # Mark phaseable walls for Shadow Step ability
     phaseable_walls = []
     if "SHADOW_STEP" in abilities:
-        phaseable_walls = mark_phaseable_walls(tiles, world, rng, cfg.get("phaseable_wall_chance", DEFAULT_PHASEABLE_WALL_CHANCE))
+        phaseable_walls = mark_phaseable_walls(tiles, world, rng, cfg.phaseable_wall_chance)
 
     spawn = find_spawn(path)
 

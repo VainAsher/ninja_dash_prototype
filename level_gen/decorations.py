@@ -29,17 +29,56 @@ def decorate_world(
     rng: random.Random,
     **kwargs: Any
 ) -> None:
-    """Add platforms, pillars, and holes to world.
+    """Add environmental decorations to make levels more interesting and challenging.
+
+    Enhances the basic room layout with procedurally placed platforms, pillars, and
+    holes to create vertical traversal opportunities and environmental hazards. All
+    decorations respect the critical path (path_mask) to ensure level completability.
+
+    Decorations Added:
+        1. Horizontal platforms: Layered at regular vertical intervals within rooms
+        2. Vertical pillars: Tall obstacles with gaps for horizontal movement
+        3. Floor holes: Gaps in solid surfaces creating pitfalls
 
     Args:
-        world: 2D tile array (modified in-place)
-        path_mask: 2D bool array marking critical path tiles
-        rng: Random number generator
-        **kwargs: Optional keyword arguments:
-            - platform_band_step: Vertical spacing between platform bands
-            - platform_len_range: Tuple of (min, max) platform length
-            - pillar_chance: Probability of adding pillars to a room
-            - hole_chance: Probability of adding holes to a room
+        world: 2D tile array [WORLD_H][WORLD_W] (modified in-place)
+               - 0 = air, 1 = solid, 2 = exit
+        path_mask: 2D boolean array [WORLD_H][WORLD_W] marking critical path tiles
+                   that must not be obstructed
+        rng: Seeded random number generator for deterministic decoration
+        **kwargs: Optional configuration parameters:
+            - platform_band_step (int): Vertical spacing between platform bands (default: 4)
+            - platform_len_range (Tuple[int, int]): Platform length range (min, max) (default: (3, 7))
+            - pillar_chance (float): Probability of adding pillars to each room (default: 0.3)
+            - hole_chance (float): Probability of adding holes to each room (default: 0.2)
+
+    Returns:
+        None (modifies world in-place)
+
+    Example:
+        >>> world = [[0]*100 for _ in range(100)]
+        >>> path_mask = [[False]*100 for _ in range(100)]
+        >>> rng = random.Random(42)
+        >>> decorate_world(world, path_mask, rng,
+        ...                platform_band_step=3,
+        ...                pillar_chance=0.5,
+        ...                hole_chance=0.3)
+        >>> # world now contains platforms, pillars, and holes
+
+    Decoration Behavior:
+        - Platforms: 1-3 segments per band, placed at regular intervals
+        - Pillars: 1-3 per room with vertical gaps for movement
+        - Holes: 1-3 per room, 2x2 tile gaps in existing floors
+        - All respect path_mask and exit tiles (value 2)
+
+    Edge Cases:
+        - Empty rooms: Still attempts decoration (may place nothing)
+        - Small rooms: May have limited decoration space
+        - High decoration chances: Can create very dense environments
+        - path_mask coverage: High coverage limits decoration opportunities
+
+    Performance:
+        O(ROOM_ROWS * ROOM_COLS * ROOM_W * ROOM_H) - processes each room
     """
     platform_band_step = kwargs.get('platform_band_step', DEFAULT_PLATFORM_BAND_STEP)
     platform_len_range = kwargs.get('platform_len_range', DEFAULT_PLATFORM_LEN_RANGE)
@@ -88,15 +127,45 @@ def decorate_world(
                                     world[yy][xx] = 0
 
 
-def build_solid_rects(world: List[List[int]]) -> Tuple[List[pygame.Rect], pygame.Rect]:
-    """Convert world grid to solid rect list.
+def build_solid_rects(world: List[List[int]]) -> Tuple[List[pygame.Rect], Optional[pygame.Rect]]:
+    """Convert tile-based world grid into renderable pygame rectangles.
+
+    Scans the entire world grid and creates pygame.Rect objects for all solid
+    tiles and the exit gate. This converts the abstract tile representation into
+    concrete game objects for collision detection and rendering.
 
     Args:
-        world: 2D tile array where 1=solid, 2=exit, 0=air
+        world: 2D tile array [WORLD_H][WORLD_W] where:
+               - 0 = air/empty space (ignored)
+               - 1 = solid tile (wall/platform)
+               - 2 = exit gate
 
     Returns:
-        Tuple of (tiles, exit_rect) where tiles is a list of solid tile rectangles
-        and exit_rect is the exit rectangle
+        Tuple of (tiles, exit_rect):
+        - tiles: List of pygame.Rect for all solid tiles (value 1)
+                 Each rect has dimensions TILE_SIZE x TILE_SIZE
+        - exit_rect: Single pygame.Rect for exit gate (value 2), or None if no exit
+
+    Example:
+        >>> world = [
+        ...     [1, 1, 1],
+        ...     [1, 0, 2],
+        ...     [1, 1, 1]
+        ... ]
+        >>> tiles, exit_rect = build_solid_rects(world)
+        >>> len(tiles)  # 8 solid tiles
+        8
+        >>> exit_rect is not None  # Found exit at (2, 1)
+        True
+
+    Edge Cases:
+        - No solid tiles: Returns empty tiles list
+        - No exit (no value 2): Returns exit_rect = None
+        - Multiple exits: Only last one found is returned (should not occur)
+        - Empty world: Returns ([], None)
+
+    Performance:
+        O(WORLD_H * WORLD_W) - single pass through entire grid
     """
     tiles = []; exit_rect = None
     for y in range(WORLD_H):

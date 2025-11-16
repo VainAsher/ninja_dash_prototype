@@ -32,6 +32,13 @@ from .ability_features import (
     add_ability_subrooms,
 )
 
+from .config import (
+    LevelGenConfig,
+    EASY_CONFIG,
+    MEDIUM_CONFIG,
+    HARD_CONFIG,
+)
+
 from .constants import (
     DEFAULT_VERTICALITY_BIAS,
     DEFAULT_BRANCHINESS,
@@ -70,6 +77,11 @@ __all__ = [
     'find_spawn',
     'mark_phaseable_walls',
     'generate_ability_orbs',
+    # Configuration
+    'LevelGenConfig',
+    'EASY_CONFIG',
+    'MEDIUM_CONFIG',
+    'HARD_CONFIG',
     # Constants
     'DEFAULT_VERTICALITY_BIAS',
     'DEFAULT_BRANCHINESS',
