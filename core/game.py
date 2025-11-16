@@ -312,42 +312,44 @@ def draw_hud_new(
     unlock_mgr: Any = None,
 ) -> None:
     """Draw enhanced modular HUD with ability progress."""
-    hud_surf.fill(COLOR_HUD_BG)
+    # Darker background for better contrast
+    hud_surf.fill((15, 15, 25))
 
-    # Calculate section dimensions
-    section_height = HUD_HEIGHT - 8
-    section_gap = 6
+    # Calculate section dimensions with more spacing
+    section_height = HUD_HEIGHT - 12
+    section_gap = 8
     available_width = hud_surf.get_width() - (6 * section_gap)
 
     # Section widths (adjusted for 5 sections)
     score_w = int(available_width * 0.20)
-    vitals_w = int(available_width * 0.18)
+    vitals_w = int(available_width * 0.19)
     level_w = int(available_width * 0.15)
-    time_w = int(available_width * 0.27)
+    time_w = int(available_width * 0.26)
     progress_w = int(available_width * 0.20)
 
-    # Create sections
+    # Create sections with more spacing from top
     x = section_gap
+    y_offset = 6
     sections = []
 
     # Score & Progress
-    sections.append(ScoreSection(x, 4, score_w, section_height))
+    sections.append(ScoreSection(x, y_offset, score_w, section_height))
     x += score_w + section_gap
 
     # Player Vitals
-    sections.append(VitalsSection(x, 4, vitals_w, section_height))
+    sections.append(VitalsSection(x, y_offset, vitals_w, section_height))
     x += vitals_w + section_gap
 
     # Level Info
-    sections.append(LevelInfoSection(x, 4, level_w, section_height))
+    sections.append(LevelInfoSection(x, y_offset, level_w, section_height))
     x += level_w + section_gap
 
     # Time & Abilities
-    sections.append(TimeAbilitiesSection(x, 4, time_w, section_height))
+    sections.append(TimeAbilitiesSection(x, y_offset, time_w, section_height))
     x += time_w + section_gap
 
     # Ability Progress
-    sections.append(AbilityProgressSection(x, 4, progress_w, section_height))
+    sections.append(AbilityProgressSection(x, y_offset, progress_w, section_height))
 
     # Prepare game data
     coins_collected = exit_gate.coins_collected if exit_gate else 0
@@ -633,11 +635,7 @@ class Game:
             border_radius=4,
         )
 
-        # Draw overlays on play area
-        PowerupIndicators.draw(self.play_area, self.player, LOGICAL_W - 160, 20)
-        AbilityResourceBars.draw(self.play_area, self.player, LOGICAL_W - 20, 120)
-
-        # Draw new modular HUD
+        # Draw new modular HUD at the top
         draw_hud_new(
             self.hud_area,
             self.total_score,
@@ -652,5 +650,10 @@ class Game:
             self.unlock_mgr,
         )
 
-        self.logical.blit(self.play_area, (0, 0))
-        self.logical.blit(self.hud_area, (0, LOGICAL_H - HUD_HEIGHT))
+        # Draw overlays on play area - larger and more visible
+        PowerupIndicators.draw(self.play_area, self.player, LOGICAL_W - 200, 20)
+        AbilityResourceBars.draw(self.play_area, self.player, LOGICAL_W - 20, 140)
+
+        # Blit HUD at top, play area below
+        self.logical.blit(self.hud_area, (0, 0))
+        self.logical.blit(self.play_area, (0, HUD_HEIGHT))
