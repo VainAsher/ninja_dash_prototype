@@ -19,6 +19,7 @@ from .constants import (
     DEFAULT_PLATFORM_LEN_RANGE,
     DEFAULT_PILLAR_CHANCE,
     DEFAULT_HOLE_CHANCE,
+    ROOM_FLOOR_OFFSET,
 )
 
 
@@ -50,7 +51,7 @@ def decorate_world(
             base_x = rx * ROOM_W
             base_y = ry * ROOM_H
 
-            for band in range(2, ROOM_H - 3, max(2, platform_band_step)):
+            for band in range(2, ROOM_H - ROOM_FLOOR_OFFSET, max(2, platform_band_step)):
                 y = base_y + band
                 if not (0 < y < WORLD_H - 1): continue
                 segments = rng.randint(1, 3)

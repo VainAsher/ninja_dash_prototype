@@ -7,6 +7,7 @@ boundary checks, and validation logic.
 from typing import Tuple, List, Set
 
 from settings import TILE_SIZE, WORLD_W, WORLD_H
+from .constants import HAZARD_SAFE_RADIUS
 
 
 # Coordinate Conversion Functions
@@ -128,7 +129,7 @@ def far_from_hazards(
     tx: int,
     ty: int,
     hazard_tiles: Set[Tuple[int, int]],
-    radius: int = 3
+    radius: int = HAZARD_SAFE_RADIUS
 ) -> bool:
     """
     Check if a tile is far enough from hazards.
@@ -137,7 +138,7 @@ def far_from_hazards(
         tx: Tile x-coordinate
         ty: Tile y-coordinate
         hazard_tiles: Set of (x, y) tuples representing hazard positions
-        radius: Minimum distance from hazards (default 3)
+        radius: Minimum distance from hazards (default HAZARD_SAFE_RADIUS)
 
     Returns:
         True if tile is far enough from all hazards

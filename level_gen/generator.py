@@ -37,6 +37,7 @@ from .constants import (
     DEFAULT_ENABLE_ABILITY_CHALLENGES,
     CHALLENGE_ATTEMPTS,
     SUBROOM_EMPTY_THRESHOLD,
+    ROOM_FLOOR_OFFSET,
 )
 
 from .maze_generator import generate_macro_maze, find_room_path
@@ -75,7 +76,7 @@ def _build_room_floors(
     for (rx, ry) in path:
         base_x = rx * ROOM_W
         base_y = ry * ROOM_H
-        floor_y = base_y + ROOM_H - 3
+        floor_y = base_y + ROOM_H - ROOM_FLOOR_OFFSET
         floor_y_for[(rx, ry)] = floor_y
 
         # Create floor across room width
@@ -294,7 +295,7 @@ def find_spawn(path: List[Tuple[int, int]]) -> Tuple[int, int]:
     """
     start_rx, start_ry = path[0]
     base_x = start_rx * ROOM_W; base_y = start_ry * ROOM_H
-    floor_y = base_y + ROOM_H - 3
+    floor_y = base_y + ROOM_H - ROOM_FLOOR_OFFSET
     sx = base_x + 3; sy = floor_y - 2
     return sx * TILE_SIZE, sy * TILE_SIZE
 
