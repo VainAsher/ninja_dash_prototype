@@ -20,6 +20,8 @@ from .constants import (
     DEFAULT_LIVES_PER_LEVEL,
     DEFAULT_POWERUP_DENSITY,
     DEFAULT_ABILITY_ORB_SPAWN_RATE,
+    HAZARD_SAFE_RADIUS,
+    MAX_SPAWN_ATTEMPTS,
 )
 
 from .utils import valid_pickup_spot, far_from_hazards, pixel_to_tile
@@ -98,7 +100,7 @@ class EntityPlacer:
             for tx in range(1, WORLD_W - 1):
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue
-                if not far_from_hazards(tx, ty, hazard_tiles, radius=3):
+                if not far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
                     continue
 
                 if self.rng.random() < coin_density:
@@ -114,11 +116,11 @@ class EntityPlacer:
         attempts = 0
         while len(lives) < max(0, int(lives_per_level)):
             attempts += 1
-            if attempts > 10000:
+            if attempts > MAX_SPAWN_ATTEMPTS:
                 break
             tx = self.rng.randint(1, WORLD_W - 2)
             ty = self.rng.randint(2, WORLD_H - 2)
-            if valid_pickup_spot(self.world, tx, ty) and far_from_hazards(tx, ty, hazard_tiles, radius=3):
+            if valid_pickup_spot(self.world, tx, ty) and far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
                 lx = tx * TILE_SIZE + TILE_SIZE // 4
                 ly = ty * TILE_SIZE + TILE_SIZE // 4
                 rect = pygame.Rect(lx, ly, TILE_SIZE // 2, TILE_SIZE // 2)
@@ -195,7 +197,7 @@ def _valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
     return valid_pickup_spot(world, tx, ty)
 
 
-def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = 3) -> bool:
+def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = HAZARD_SAFE_RADIUS) -> bool:
     """Check if tile is far enough from hazards."""
     return far_from_hazards(tx, ty, hazard_tiles, radius)
 

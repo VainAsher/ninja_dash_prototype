@@ -65,3 +65,14 @@ CHALLENGE_ATTEMPTS = 50
 
 SUBROOM_EMPTY_THRESHOLD = 0.6
 """Float: Minimum empty space fraction required for subroom placement"""
+
+# Entity Placement Constants
+HAZARD_SAFE_RADIUS = 3
+"""Int: Minimum distance from hazards for safe pickup placement"""
+
+MAX_SPAWN_ATTEMPTS = 10000
+"""Int: Maximum attempts to spawn entities before giving up"""
+
+# Room Layout Constants
+ROOM_FLOOR_OFFSET = 3
+"""Int: Offset from bottom of room for floor placement (ROOM_H - ROOM_FLOOR_OFFSET)"""
