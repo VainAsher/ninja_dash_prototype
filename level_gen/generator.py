@@ -41,6 +41,12 @@ from .constants import (
 from .maze_generator import generate_macro_maze, find_room_path
 from .decorations import decorate_world, build_solid_rects
 from .ability_features import add_ability_challenges, add_ability_subrooms
+from .entity_placer import (
+    generate_hazards,
+    generate_coins_and_pickups,
+    generate_powerups,
+    generate_ability_orbs,
+)
 
 
 class Room:
@@ -126,108 +132,6 @@ def build_world_from_path(path):
     return world, path_mask
 
 
-def _valid_pickup_spot(world, tx, ty):
-    """Check if (tx,ty) is a valid pickup spawn location."""
-    if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1): 
-        return False
-    return world[ty][tx] == 0 and world[ty + 1][tx] == 1
-
-
-def _far_from_hazards(tx, ty, hazard_tiles, radius=3):
-    """Check if tile is far enough from hazards."""
-    for hx, hy in hazard_tiles:
-        if abs(hx - tx) <= radius and hy == ty: 
-            return False
-        if abs(hy - ty) <= radius and hx == tx: 
-            return False
-    return True
-
-
-def generate_hazards(world, rng, rate=DEFAULT_HAZARD_RATE):
-    """Generate spike hazards on platforms."""
-    hazards = []
-    for y in range(2, WORLD_H - 1):
-        for x in range(1, WORLD_W - 1):
-            if world[y][x] == 1 and world[y - 1][x] == 0 and world[y - 2][x] == 0:
-                if rng.random() < rate:
-                    hx = x * TILE_SIZE + 2
-                    hy = (y - 1) * TILE_SIZE + TILE_SIZE // 2
-                    hazards.append(pygame.Rect(hx, hy, TILE_SIZE - 4, TILE_SIZE // 2))
-    return hazards
-
-
-def generate_coins_and_pickups(world, rng, coin_density=DEFAULT_COIN_DENSITY, health_density=DEFAULT_HEALTH_DENSITY, lives_per_level=DEFAULT_LIVES_PER_LEVEL, hazards=None):
-    """Generate coins, health, and lives."""
-    hazards = hazards or []
-    coins = []; healths = []; lives = []
-    
-    hazard_tiles = set()
-    if hazards:
-        for h in hazards:
-            hx = (h.x + h.w // 2) // TILE_SIZE
-            hy = (h.y + h.h // 2) // TILE_SIZE
-            hazard_tiles.add((hx, hy))
-
-    for ty in range(2, WORLD_H - 1):
-        for tx in range(1, WORLD_W - 1):
-            if not _valid_pickup_spot(world, tx, ty): 
-                continue
-            if not _far_from_hazards(tx, ty, hazard_tiles, radius=3): 
-                continue
-            
-            if rng.random() < coin_density:
-                cx = tx * TILE_SIZE + TILE_SIZE // 4
-                cy = ty * TILE_SIZE + TILE_SIZE // 4
-                coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
-            elif rng.random() < health_density:
-                hx = tx * TILE_SIZE + TILE_SIZE // 4
-                hy = ty * TILE_SIZE + TILE_SIZE // 4
-                healths.append(pygame.Rect(hx, hy, TILE_SIZE // 2, TILE_SIZE // 2))
-
-    attempts = 0
-    while len(lives) < max(0, int(lives_per_level)):
-        attempts += 1
-        if attempts > 10000: 
-            break
-        tx = rng.randint(1, WORLD_W - 2)
-        ty = rng.randint(2, WORLD_H - 2)
-        if _valid_pickup_spot(world, tx, ty) and _far_from_hazards(tx, ty, hazard_tiles, radius=3):
-            lx = tx * TILE_SIZE + TILE_SIZE // 4
-            ly = ty * TILE_SIZE + TILE_SIZE // 4
-            rect = pygame.Rect(lx, ly, TILE_SIZE // 2, TILE_SIZE // 2)
-            if any(rect.colliderect(c) for c in coins + healths + lives): 
-                continue
-            lives.append(rect)
-
-    return coins, healths, lives
-
-
-def generate_powerups(world, rng, density=DEFAULT_POWERUP_DENSITY):
-    """Generate typed power-ups (speed, shadow, triple, magnet)."""
-    powerups = []
-    
-    # Build weighted list
-    types_list = []
-    for ptype, weight in POWERUP_TYPES:
-        types_list.extend([ptype] * weight)
-    
-    for ty in range(2, WORLD_H - 1):
-        for tx in range(1, WORLD_W - 1):
-            if not _valid_pickup_spot(world, tx, ty):
-                continue
-            
-            if rng.random() < density:
-                px = tx * TILE_SIZE + TILE_SIZE // 4
-                py = ty * TILE_SIZE + TILE_SIZE // 4
-                ptype = rng.choice(types_list)
-                powerups.append({
-                    'rect': pygame.Rect(px, py, TILE_SIZE // 2, TILE_SIZE // 2),
-                    'type': ptype
-                })
-    
-    return powerups
-
-
 def find_spawn(path):
     """Find player spawn point at start of path."""
     start_rx, start_ry = path[0]
@@ -276,35 +180,6 @@ def mark_phaseable_walls(tiles, world, rng, phaseable_wall_chance=DEFAULT_PHASEA
             phaseable.append(t)
     
     return phaseable
-
-
-def generate_ability_orbs(world, rng, spawn_rate=DEFAULT_ABILITY_ORB_SPAWN_RATE):
-    """
-    Generate rare Ability Orb spawn points (0.3% rate).
-
-    Args:
-        world: 2D level array
-        rng: Random number generator
-        spawn_rate: Probability per valid location (default 0.3%)
-
-    Returns:
-        List of ability orb spawn rectangles
-    """
-    orbs = []
-
-    for ty in range(2, WORLD_H - 1):
-        for tx in range(1, WORLD_W - 1):
-            # Must be valid spawn location (same as other pickups)
-            if not _valid_pickup_spot(world, tx, ty):
-                continue
-
-            # Random chance for orb spawn (very rare!)
-            if rng.random() < spawn_rate:
-                ox = tx * TILE_SIZE + TILE_SIZE // 4
-                oy = ty * TILE_SIZE + TILE_SIZE // 4
-                orbs.append(pygame.Rect(ox, oy, TILE_SIZE // 2, TILE_SIZE // 2))
-
-    return orbs
 
 
 def generate_level(seed=None, diff_cfg=None, abilities=None):

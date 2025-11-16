@@ -11,11 +11,14 @@ from .generator import (
     generate_macro_maze,
     find_room_path,
     build_world_from_path,
+    find_spawn,
+    mark_phaseable_walls,
+)
+
+from .entity_placer import (
     generate_hazards,
     generate_coins_and_pickups,
     generate_powerups,
-    find_spawn,
-    mark_phaseable_walls,
     generate_ability_orbs,
 )
 
