@@ -24,7 +24,7 @@ from .constants import (
     MAX_SPAWN_ATTEMPTS,
 )
 
-from .utils import valid_pickup_spot, far_from_hazards, pixel_to_tile
+from .utils import valid_pickup_spot, enhanced_valid_pickup_spot, far_from_hazards, pixel_to_tile
 
 
 class EntityPlacer:
@@ -40,6 +40,48 @@ class EntityPlacer:
         """
         self.world = world
         self.rng = rng
+
+    def _find_nearby_magnets(
+        self,
+        tx: int,
+        ty: int,
+        powerups: List[Dict[str, Any]],
+        radius: int = 15
+    ) -> bool:
+        """
+        Check if there are any magnet powerups near a given tile position.
+
+        This enables strategic "risky" coin placement near magnets, creating
+        risk/reward gameplay where players who find magnets can access more coins.
+
+        Args:
+            tx: Tile x-coordinate
+            ty: Tile y-coordinate
+            powerups: List of powerup dictionaries with 'rect' and 'type'
+            radius: Search radius in tiles (default 15 tiles)
+
+        Returns:
+            True if at least one magnet powerup is within radius
+        """
+        if not powerups:
+            return False
+
+        for powerup in powerups:
+            if powerup.get('type') != 'magnet':
+                continue
+
+            # Convert powerup pixel position to tile coordinates
+            powerup_rect = powerup['rect']
+            powerup_tx = powerup_rect.centerx // TILE_SIZE
+            powerup_ty = powerup_rect.centery // TILE_SIZE
+
+            # Calculate Manhattan distance
+            distance = abs(powerup_tx - tx) + abs(powerup_ty - ty)
+
+            if distance <= radius:
+                return True
+
+        return False
 
     def generate_hazards(self, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:
         """
@@ -66,21 +108,29 @@ class EntityPlacer:
         coin_density: float = DEFAULT_COIN_DENSITY,
         health_density: float = DEFAULT_HEALTH_DENSITY,
         lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
-        hazards: Optional[List[pygame.Rect]] = None
+        hazards: Optional[List[pygame.Rect]] = None,
+        powerups: Optional[List[Dict[str, Any]]] = None
     ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
         """
-        Generate coins, health, and lives.
+        Generate coins, health, and lives with enhanced placement validation.
+
+        NEW BEHAVIOR:
+        - Uses enhanced_valid_pickup_spot() for better safety
+        - Checks for nearby magnet powerups
+        - Allows "risky" placement near magnets for strategic gameplay
 
         Args:
             coin_density: Spawn rate for coins
             health_density: Spawn rate for health pickups
             lives_per_level: Number of extra lives to spawn
             hazards: List of hazard rectangles to avoid
+            powerups: List of powerup dicts (for magnet proximity check)
 
         Returns:
             Tuple of (coins, healths, lives) - lists of rectangles
         """
         hazards = hazards or []
+        powerups = powerups or []
         coins = []
         healths = []
         lives = []
@@ -95,11 +145,19 @@ class EntityPlacer:
                 hx, hy = pixel_to_tile(center_x, center_y)
                 hazard_tiles.add((hx, hy))
 
-        # Generate coins and health pickups
+        # Generate coins and health pickups with ENHANCED validation
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
-                if not valid_pickup_spot(self.world, tx, ty):
+                # Check if there's a magnet powerup nearby
+                magnet_nearby = self._find_nearby_magnets(tx, ty, powerups, radius=15)
+
+                # Use enhanced validation (allow risky spots near magnets)
+                if not enhanced_valid_pickup_spot(
+                    self.world, tx, ty, allow_risky=magnet_nearby
+                ):
                     continue
+
+                # Standard hazard proximity check
                 if not far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
                     continue
 
@@ -112,7 +170,7 @@ class EntityPlacer:
                     hy = ty * TILE_SIZE + TILE_SIZE // 4
                     healths.append(pygame.Rect(hx, hy, TILE_SIZE // 2, TILE_SIZE // 2))
 
-        # Generate extra lives (random placement)
+        # Generate extra lives (random placement with enhanced validation)
         attempts = 0
         while len(lives) < max(0, int(lives_per_level)):
             attempts += 1
@@ -120,7 +178,12 @@ class EntityPlacer:
                 break
             tx = self.rng.randint(1, WORLD_W - 2)
             ty = self.rng.randint(2, WORLD_H - 2)
-            if valid_pickup_spot(self.world, tx, ty) and far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
+
+            # Check for nearby magnets for this life pickup too
+            magnet_nearby = self._find_nearby_magnets(tx, ty, powerups, radius=15)
+
+            if (enhanced_valid_pickup_spot(self.world, tx, ty, allow_risky=magnet_nearby) and
+                far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS)):
                 lx = tx * TILE_SIZE + TILE_SIZE // 4
                 ly = ty * TILE_SIZE + TILE_SIZE // 4
                 rect = pygame.Rect(lx, ly, TILE_SIZE // 2, TILE_SIZE // 2)
@@ -214,11 +277,12 @@ def generate_coins_and_pickups(
     coin_density: float = DEFAULT_COIN_DENSITY,
     health_density: float = DEFAULT_HEALTH_DENSITY,
     lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
-    hazards: Optional[List[pygame.Rect]] = None
+    hazards: Optional[List[pygame.Rect]] = None,
+    powerups: Optional[List[Dict[str, Any]]] = None
 ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
-    """Generate coins, health, and lives."""
+    """Generate coins, health, and lives with enhanced validation."""
     placer = EntityPlacer(world, rng)
-    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards)
+    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards, powerups)
 
 
 def generate_powerups(world: List[List[int]], rng: random.Random, density: float = DEFAULT_POWERUP_DENSITY) -> List[Dict[str, Any]]:

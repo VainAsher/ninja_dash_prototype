@@ -148,6 +148,85 @@ def valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
     return world[ty][tx] == 0 and world[ty + 1][tx] == 1
 
 
+def enhanced_valid_pickup_spot(
+    world: List[List[int]],
+    tx: int,
+    ty: int,
+    allow_risky: bool = False
+) -> bool:
+    """
+    Enhanced validation for pickup placement with comprehensive safety checks.
+
+    This function prevents coins from spawning:
+    - Inside platforms (embedded in solid blocks)
+    - In tight enclosed spaces
+    - Without proper clearance above
+
+    Args:
+        world: 2D level array
+        tx: Tile x-coordinate
+        ty: Tile y-coordinate
+        allow_risky: If True, relaxes horizontal clearance restrictions
+                     (used when magnet powerup is nearby)
+
+    Returns:
+        True if location is valid and safe for pickup placement
+    """
+    # 1. Bounds check with safe margin
+    if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1):
+        return False
+
+    # 2. Basic validation - current tile must be air, tile below must be solid
+    if world[ty][tx] != 0 or world[ty + 1][tx] != 1:
+        return False
+
+    # 3. CRITICAL FIX: Tile above must be clear
+    # Prevents coins from spawning embedded in platforms
+    if world[ty - 1][tx] != 0:
+        return False
+
+    # 4. Check for enclosed space (surrounded by solid blocks)
+    # This catches coins that would spawn in small pockets
+    solid_sides = 0
+    if tx <= 1 or world[ty][tx - 1] == 1:
+        solid_sides += 1
+    if tx >= WORLD_W - 2 or world[ty][tx + 1] == 1:
+        solid_sides += 1
+
+    # If completely enclosed horizontally, reject (unless risky mode)
+    if solid_sides >= 2 and not allow_risky:
+        return False
+
+    # 5. Additional safety: Check for sufficient vertical clearance
+    # Ensure at least 2 tiles of vertical space
+    clearance_tiles = 0
+    for check_y in range(max(0, ty - 2), ty):
+        if world[check_y][tx] == 0:
+            clearance_tiles += 1
+
+    if clearance_tiles < 1 and not allow_risky:
+        return False
+
+    # 6. NEW: Check for platform interior (surrounded on 3+ sides)
+    # Count solid blocks in 8 surrounding tiles
+    surrounding_solid = 0
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            if dy == 0 and dx == 0:
+                continue  # Skip center tile
+            check_x = tx + dx
+            check_y = ty + dy
+            if (0 <= check_x < WORLD_W and 0 <= check_y < WORLD_H and
+                world[check_y][check_x] == 1):
+                surrounding_solid += 1
+
+    # If surrounded by too many solid blocks, it's probably inside a platform
+    if surrounding_solid >= 6 and not allow_risky:
+        return False
+
+    return True
+
+
 def far_from_hazards(
     tx: int,
     ty: int,
