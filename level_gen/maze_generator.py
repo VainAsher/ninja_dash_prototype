@@ -5,6 +5,7 @@ Maze Generation Module - Handles procedural maze generation and pathfinding.
 from collections import deque
 
 from .constants import DEFAULT_VERTICALITY_BIAS, DEFAULT_BRANCHINESS
+from .structures import Room
 
 
 def generate_macro_maze(cols, rows, rng, verticality_bias=DEFAULT_VERTICALITY_BIAS, branchiness=DEFAULT_BRANCHINESS):
@@ -75,12 +76,14 @@ def generate_macro_maze(cols, rows, rng, verticality_bias=DEFAULT_VERTICALITY_BI
                     open_between(x, y, tx, ty, td)
                     break
 
-    class RoomProxy:
-        def __init__(self, c):
-            self.open_up = c.open_up; self.open_down = c.open_down
-            self.open_left = c.open_left; self.open_right = c.open_right
-
-    return [[RoomProxy(grid[y][x]) for x in range(cols)] for y in range(rows)]
+    return [[Room(
+        rx=x,
+        ry=y,
+        open_up=grid[y][x].open_up,
+        open_down=grid[y][x].open_down,
+        open_left=grid[y][x].open_left,
+        open_right=grid[y][x].open_right
+    ) for x in range(cols)] for y in range(rows)]
 
 
 def find_room_path(rooms, start, goal, room_cols, room_rows):

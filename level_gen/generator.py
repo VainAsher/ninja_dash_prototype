@@ -47,14 +47,7 @@ from .entity_placer import (
     generate_powerups,
     generate_ability_orbs,
 )
-
-
-class Room:
-    def __init__(self, rx, ry):
-        self.rx = rx
-        self.ry = ry
-        self.open_up = self.open_down = False
-        self.open_left = self.open_right = False
+from .structures import Room
 
 
 def build_world_from_path(path):
