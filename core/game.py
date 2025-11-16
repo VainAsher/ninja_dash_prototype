@@ -63,6 +63,17 @@ from states.name_entry import NameEntryState
 from states.seed_entry import SeedEntryState
 from states.controls_viewer import ControlsViewerState
 
+from ui.hud_components import (
+    ScoreSection,
+    VitalsSection,
+    LevelInfoSection,
+    TimeAbilitiesSection,
+    AbilityProgressSection,
+    PowerupIndicators,
+    AbilityResourceBars,
+    ExitGateIndicator
+)
+
 
 def create_window() -> pygame.Surface:
     pygame.display.set_caption("Ninja Dash - Refactored Prototype")
@@ -285,6 +296,80 @@ def draw_hud(
         pygame.draw.rect(hud_surf, color, rect, border_radius=8)
         hud_surf.blit(chip, (rect.x + 6, rect.y + 2))
         x += rect.w + 8
+
+
+def draw_hud_new(
+    hud_surf: pygame.Surface,
+    score: int,
+    lives: int,
+    health: int,
+    level_index: int,
+    difficulty: str,
+    abilities: List[str],
+    game_time: float,
+    exit_gate: Any = None,
+    player: Any = None,
+    unlock_mgr: Any = None,
+) -> None:
+    """Draw enhanced modular HUD with ability progress."""
+    hud_surf.fill(COLOR_HUD_BG)
+
+    # Calculate section dimensions
+    section_height = HUD_HEIGHT - 8
+    section_gap = 6
+    available_width = hud_surf.get_width() - (6 * section_gap)
+
+    # Section widths (adjusted for 5 sections)
+    score_w = int(available_width * 0.20)
+    vitals_w = int(available_width * 0.18)
+    level_w = int(available_width * 0.15)
+    time_w = int(available_width * 0.27)
+    progress_w = int(available_width * 0.20)
+
+    # Create sections
+    x = section_gap
+    sections = []
+
+    # Score & Progress
+    sections.append(ScoreSection(x, 4, score_w, section_height))
+    x += score_w + section_gap
+
+    # Player Vitals
+    sections.append(VitalsSection(x, 4, vitals_w, section_height))
+    x += vitals_w + section_gap
+
+    # Level Info
+    sections.append(LevelInfoSection(x, 4, level_w, section_height))
+    x += level_w + section_gap
+
+    # Time & Abilities
+    sections.append(TimeAbilitiesSection(x, 4, time_w, section_height))
+    x += time_w + section_gap
+
+    # Ability Progress
+    sections.append(AbilityProgressSection(x, 4, progress_w, section_height))
+
+    # Prepare game data
+    coins_collected = exit_gate.coins_collected if exit_gate else 0
+    coins_required = exit_gate.required_coins if exit_gate else 0
+
+    game_data = {
+        'score': score,
+        'coins_collected': coins_collected,
+        'coins_required': coins_required,
+        'health': health,
+        'lives': lives,
+        'level': level_index,
+        'difficulty': difficulty,
+        'time': game_time,
+        'abilities': abilities,
+        'unlock_mgr': unlock_mgr,
+        'player': player,
+    }
+
+    # Draw all sections
+    for section in sections:
+        section.draw(hud_surf, game_data)
 
 
 class Game:
@@ -548,7 +633,12 @@ class Game:
             border_radius=4,
         )
 
-        draw_hud(
+        # Draw overlays on play area
+        PowerupIndicators.draw(self.play_area, self.player, LOGICAL_W - 160, 20)
+        AbilityResourceBars.draw(self.play_area, self.player, LOGICAL_W - 20, 120)
+
+        # Draw new modular HUD
+        draw_hud_new(
             self.hud_area,
             self.total_score,
             self.lives,
@@ -557,8 +647,9 @@ class Game:
             self.difficulty,
             self.abilities,
             self.game_time,
-            self.unlock_mgr,
+            self.exit_gate,
             self.player,
+            self.unlock_mgr,
         )
 
         self.logical.blit(self.play_area, (0, 0))
