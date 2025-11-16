@@ -22,6 +22,8 @@ from .constants import (
     DEFAULT_ABILITY_ORB_SPAWN_RATE,
 )
 
+from .utils import valid_pickup_spot, far_from_hazards, pixel_to_tile
+
 
 class EntityPlacer:
     """Handles placement of all entities (coins, pickups, powerups, hazards, ability orbs)."""
@@ -36,23 +38,6 @@ class EntityPlacer:
         """
         self.world = world
         self.rng = rng
-
-    @staticmethod
-    def _valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
-        """Check if (tx,ty) is a valid pickup spawn location."""
-        if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1):
-            return False
-        return world[ty][tx] == 0 and world[ty + 1][tx] == 1
-
-    @staticmethod
-    def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = 3) -> bool:
-        """Check if tile is far enough from hazards."""
-        for hx, hy in hazard_tiles:
-            if abs(hx - tx) <= radius and hy == ty:
-                return False
-            if abs(hy - ty) <= radius and hx == tx:
-                return False
-        return True
 
     def generate_hazards(self, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:
         """
@@ -102,16 +87,18 @@ class EntityPlacer:
         hazard_tiles = set()
         if hazards:
             for h in hazards:
-                hx = (h.x + h.w // 2) // TILE_SIZE
-                hy = (h.y + h.h // 2) // TILE_SIZE
+                # Get center point of hazard and convert to tile coordinates
+                center_x = h.x + h.w // 2
+                center_y = h.y + h.h // 2
+                hx, hy = pixel_to_tile(center_x, center_y)
                 hazard_tiles.add((hx, hy))
 
         # Generate coins and health pickups
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
-                if not self._valid_pickup_spot(self.world, tx, ty):
+                if not valid_pickup_spot(self.world, tx, ty):
                     continue
-                if not self._far_from_hazards(tx, ty, hazard_tiles, radius=3):
+                if not far_from_hazards(tx, ty, hazard_tiles, radius=3):
                     continue
 
                 if self.rng.random() < coin_density:
@@ -131,7 +118,7 @@ class EntityPlacer:
                 break
             tx = self.rng.randint(1, WORLD_W - 2)
             ty = self.rng.randint(2, WORLD_H - 2)
-            if self._valid_pickup_spot(self.world, tx, ty) and self._far_from_hazards(tx, ty, hazard_tiles, radius=3):
+            if valid_pickup_spot(self.world, tx, ty) and far_from_hazards(tx, ty, hazard_tiles, radius=3):
                 lx = tx * TILE_SIZE + TILE_SIZE // 4
                 ly = ty * TILE_SIZE + TILE_SIZE // 4
                 rect = pygame.Rect(lx, ly, TILE_SIZE // 2, TILE_SIZE // 2)
@@ -160,7 +147,7 @@ class EntityPlacer:
 
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
-                if not self._valid_pickup_spot(self.world, tx, ty):
+                if not valid_pickup_spot(self.world, tx, ty):
                     continue
 
                 if self.rng.random() < density:
@@ -189,7 +176,7 @@ class EntityPlacer:
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
                 # Must be valid spawn location (same as other pickups)
-                if not self._valid_pickup_spot(self.world, tx, ty):
+                if not valid_pickup_spot(self.world, tx, ty):
                     continue
 
                 # Random chance for orb spawn (very rare!)
@@ -201,15 +188,16 @@ class EntityPlacer:
         return orbs
 
 
-# Standalone helper functions (for backward compatibility if needed)
+# Standalone helper functions (for backward compatibility)
+# These now delegate to the utils module
 def _valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
     """Check if (tx,ty) is a valid pickup spawn location."""
-    return EntityPlacer._valid_pickup_spot(world, tx, ty)
+    return valid_pickup_spot(world, tx, ty)
 
 
 def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = 3) -> bool:
     """Check if tile is far enough from hazards."""
-    return EntityPlacer._far_from_hazards(tx, ty, hazard_tiles, radius)
+    return far_from_hazards(tx, ty, hazard_tiles, radius)
 
 
 def generate_hazards(world: List[List[int]], rng: random.Random, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:

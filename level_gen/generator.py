@@ -49,6 +49,7 @@ from .entity_placer import (
     generate_ability_orbs,
 )
 from .structures import Room
+from .utils import pixel_to_tile, is_on_boundary
 
 
 def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]], List[List[bool]]]:
@@ -169,14 +170,13 @@ def mark_phaseable_walls(
         List of phaseable wall rectangles
     """
     phaseable = []
-    
+
     for t in tiles:
         # Convert rect to tile coordinates
-        tx = t.x // TILE_SIZE
-        ty = t.y // TILE_SIZE
-        
+        tx, ty = pixel_to_tile(t.x, t.y)
+
         # Skip boundary walls
-        if tx == 0 or tx == WORLD_W - 1 or ty == 0 or ty == WORLD_H - 1:
+        if is_on_boundary(tx, ty):
             continue
         
         # Check if this is a vertical wall (has space on left or right)
