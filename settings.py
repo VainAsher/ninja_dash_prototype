@@ -222,7 +222,7 @@ COLOR_POWERUP_TRIPLE = (100, 255, 200)
 COLOR_POWERUP_EXTRA_JUMP = (150, 255, 150)  # Light green for extra jump
 COLOR_POWERUP_MAGNET = (255, 215, 0)
 
-HUD_HEIGHT = 80
+HUD_HEIGHT = 100
 
 pygame.font.init()
 FONT = pygame.font.SysFont("consolas", 24)

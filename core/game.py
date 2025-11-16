@@ -316,7 +316,7 @@ def draw_hud_new(
     hud_surf.fill((15, 15, 25))
 
     # Calculate section dimensions with more spacing
-    section_height = HUD_HEIGHT - 12
+    section_height = HUD_HEIGHT - 16
     section_gap = 8
     available_width = hud_surf.get_width() - (6 * section_gap)
 
@@ -327,9 +327,9 @@ def draw_hud_new(
     time_w = int(available_width * 0.26)
     progress_w = int(available_width * 0.20)
 
-    # Create sections with more spacing from top
+    # Create sections with spacing from top
     x = section_gap
-    y_offset = 6
+    y_offset = 8
     sections = []
 
     # Score & Progress

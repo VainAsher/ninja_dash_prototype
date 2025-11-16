@@ -84,15 +84,15 @@ class ScoreSection(HUDSection):
     def draw(self, surf, game_data):
         self.draw_background(surf)
 
-        x, y = self.rect.x + 14, self.rect.y + 10
+        x, y = self.rect.x + 12, self.rect.y + 8
 
-        # Label - larger and bolder
-        label = FONT.render("SCORE", True, (220, 220, 240))
-        surf.blit(label, (x, y - 4))
+        # Label - compact
+        label = FONT_SMALL.render("SCORE", True, (220, 220, 240))
+        surf.blit(label, (x, y))
 
         # Score with larger font
         score_text = FONT_BIG.render(f"{game_data['score']:,}", True, (255, 230, 80))
-        surf.blit(score_text, (x, y + 18))
+        surf.blit(score_text, (x, y + 16))
 
         # Coin progress
         y += 54
@@ -100,7 +100,7 @@ class ScoreSection(HUDSection):
         coins_required = game_data.get('coins_required', 0)
 
         # Progress bar - taller for better visibility
-        bar_width = self.rect.w - 28
+        bar_width = self.rect.w - 24
         bar_height = 16
         bar_x, bar_y = x, y
 
@@ -133,20 +133,20 @@ class VitalsSection(HUDSection):
     def draw(self, surf, game_data):
         self.draw_background(surf)
 
-        x, y = self.rect.x + 14, self.rect.y + 10
+        x, y = self.rect.x + 12, self.rect.y + 8
 
-        # HP label - larger
-        hp_label = FONT.render("HP", True, (220, 220, 240))
-        surf.blit(hp_label, (x, y - 4))
+        # HP label - compact
+        hp_label = FONT_SMALL.render("HP", True, (220, 220, 240))
+        surf.blit(hp_label, (x, y))
 
         # Health hearts - larger and more visible
         health = game_data.get('health', 3)
         max_health = PLAYER_MAX_HEALTH
 
-        segment_size = 24
-        segment_gap = 6
+        segment_size = 22
+        segment_gap = 5
 
-        y += 20
+        y += 18
 
         # Draw hearts
         for i in range(max_health):
@@ -154,28 +154,42 @@ class VitalsSection(HUDSection):
             draw_heart(surf, seg_x, y, segment_size, filled=(i < health))
 
         # Lives display
-        y += 34
+        y += 28
         lives = game_data.get('lives', 3)
 
-        # Lives icon (simple square) - larger
-        icon_rect = pygame.Rect(x, y, 20, 20)
+        # Lives label
+        lives_label = FONT_SMALL.render("LIVES", True, (220, 220, 240))
+        surf.blit(lives_label, (x, y))
+
+        y += 16
+
+        # Lives icon (simple square)
+        icon_rect = pygame.Rect(x, y, 18, 18)
         pygame.draw.rect(surf, (255, 140, 255), icon_rect, border_radius=4)
         pygame.draw.rect(surf, (255, 180, 255), icon_rect, 3, border_radius=4)
 
-        # Lives count - larger
+        # Lives count
         lives_text = FONT.render(f"x{lives}", True, (255, 160, 255))
-        surf.blit(lives_text, (x + 28, y - 2))
+        surf.blit(lives_text, (x + 24, y - 3))
 
         # Stamina bar (if dash ability is unlocked)
         player = game_data.get('player')
         if player and hasattr(player, 'abilities') and 'dash' in player.abilities:
             dash = player.abilities['dash']
             if hasattr(dash, 'resource') and hasattr(dash, 'max_resource'):
-                y += 28
+                # Position stamina bar to the right of hearts instead of below
+                stam_x = x + 100
+                stam_y = self.rect.y + 8
 
-                # Stamina bar - taller and more visible
-                bar_w = self.rect.w - 28
-                bar_h = 10
+                # Stamina label
+                stam_label = FONT_SMALL.render("STAM", True, (220, 220, 240))
+                surf.blit(stam_label, (stam_x, stam_y))
+
+                stam_y += 18
+
+                # Stamina bar - vertical bar
+                bar_w = self.rect.w - (stam_x - self.rect.x) - 12
+                bar_h = 48
                 ratio = dash.resource / dash.max_resource if dash.max_resource > 0 else 0
 
                 # Color based on stamina level
@@ -186,7 +200,7 @@ class VitalsSection(HUDSection):
                 else:
                     color = (255, 120, 120)  # Red when low
 
-                draw_progress_bar(surf, x, y, bar_w, bar_h, ratio, color)
+                draw_progress_bar(surf, stam_x, stam_y, bar_w, bar_h, ratio, color)
 
 
 # ============================================================================
@@ -199,16 +213,16 @@ class LevelInfoSection(HUDSection):
     def draw(self, surf, game_data):
         self.draw_background(surf)
 
-        x, y = self.rect.x + 14, self.rect.y + 10
+        x, y = self.rect.x + 12, self.rect.y + 8
 
-        # Level label - larger
-        label = FONT.render("LEVEL", True, (220, 220, 240))
-        surf.blit(label, (x, y - 4))
+        # Level label - compact
+        label = FONT_SMALL.render("LEVEL", True, (220, 220, 240))
+        surf.blit(label, (x, y))
 
         # Level number (large)
         level = game_data.get('level', 1)
         level_text = FONT_BIG.render(f"{level}", True, (120, 220, 255))
-        surf.blit(level_text, (x, y + 18))
+        surf.blit(level_text, (x, y + 16))
 
         # Difficulty badge
         y += 54
@@ -223,12 +237,12 @@ class LevelInfoSection(HUDSection):
         }
         color = diff_colors.get(difficulty, (150, 150, 150))
 
-        badge_width = self.rect.w - 28
-        badge_rect = pygame.Rect(x, y, badge_width, 24)
+        badge_width = self.rect.w - 24
+        badge_rect = pygame.Rect(x, y, badge_width, 20)
         pygame.draw.rect(surf, color, badge_rect, border_radius=5)
-        pygame.draw.rect(surf, (255, 255, 255), badge_rect, 3, border_radius=5)
+        pygame.draw.rect(surf, (255, 255, 255), badge_rect, 2, border_radius=5)
 
-        diff_text = FONT.render(difficulty.upper(), True, (20, 20, 30))
+        diff_text = FONT_SMALL.render(difficulty.upper(), True, (20, 20, 30))
         text_rect = diff_text.get_rect(center=badge_rect.center)
         surf.blit(diff_text, text_rect)
 
@@ -243,28 +257,28 @@ class TimeAbilitiesSection(HUDSection):
     def draw(self, surf, game_data):
         self.draw_background(surf)
 
-        x, y = self.rect.x + 14, self.rect.y + 10
+        x, y = self.rect.x + 12, self.rect.y + 8
 
-        # Time label - larger
-        label = FONT.render("TIME", True, (220, 220, 240))
-        surf.blit(label, (x, y - 4))
+        # Time label - compact
+        label = FONT_SMALL.render("TIME", True, (220, 220, 240))
+        surf.blit(label, (x, y))
 
         # Time display - larger and more visible
         time = game_data.get('time', 0.0)
         time_text = FONT_BIG.render(format_time(time), True, (160, 255, 220))
-        surf.blit(time_text, (x, y + 18))
+        surf.blit(time_text, (x, y + 16))
 
         # Ability indicators
         y += 54
         abilities = game_data.get('abilities', [])
 
-        # Draw ability chips - larger
-        chip_w, chip_h = 38, 28
-        chip_gap = 5
+        # Draw ability chips - compact
+        chip_w, chip_h = 36, 24
+        chip_gap = 4
 
         from unlocks import ABILITY_INFO
 
-        for i, ability in enumerate(abilities[:5]):  # Show max 5
+        for i, ability in enumerate(abilities[:6]):  # Show max 6
             chip_x = x + i * (chip_w + chip_gap)
             chip_rect = pygame.Rect(chip_x, y, chip_w, chip_h)
 
@@ -272,10 +286,10 @@ class TimeAbilitiesSection(HUDSection):
             short = info.get("short", "??")
             color = info.get("color", (150, 150, 150))
 
-            pygame.draw.rect(surf, color, chip_rect, border_radius=5)
-            pygame.draw.rect(surf, (255, 255, 255), chip_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, color, chip_rect, border_radius=4)
+            pygame.draw.rect(surf, (255, 255, 255), chip_rect, 2, border_radius=4)
 
-            txt = FONT.render(short, True, (255, 255, 255))
+            txt = FONT_SMALL.render(short, True, (255, 255, 255))
             txt_rect = txt.get_rect(center=chip_rect.center)
             surf.blit(txt, txt_rect)
 
@@ -298,13 +312,13 @@ class AbilityProgressSection(HUDSection):
     def draw(self, surf, game_data):
         self.draw_background(surf)
 
-        x, y = self.rect.x + 14, self.rect.y + 10
+        x, y = self.rect.x + 12, self.rect.y + 8
 
         # Get unlock manager data
         unlock_mgr = game_data.get('unlock_mgr')
         if not unlock_mgr:
             # No unlock manager, show placeholder
-            label = FONT.render("PROGRESS", True, (220, 220, 240))
+            label = FONT_SMALL.render("PROGRESS", True, (220, 220, 240))
             surf.blit(label, (x, y))
             return
 
@@ -312,11 +326,11 @@ class AbilityProgressSection(HUDSection):
         next_unlock = unlock_mgr.get_next_unlock()
         available_orbs = unlock_mgr.get_ability_orbs_available()
 
-        # Section label - larger
-        label = FONT.render("NEXT", True, (220, 220, 240))
-        surf.blit(label, (x, y - 4))
+        # Section label - compact
+        label = FONT_SMALL.render("NEXT UNLOCK", True, (220, 220, 240))
+        surf.blit(label, (x, y))
 
-        y += 18
+        y += 16
 
         if next_unlock:
             # Next ability preview
@@ -331,46 +345,46 @@ class AbilityProgressSection(HUDSection):
             color = ability_info.get('color', (150, 150, 150))
             short = ability_info.get('short', '??')
 
-            # Ability preview box - larger
-            preview_w = self.rect.w - 28
-            preview_h = 28
+            # Ability preview box
+            preview_w = self.rect.w - 24
+            preview_h = 24
             preview_rect = pygame.Rect(x, y, preview_w, preview_h)
 
             # Draw preview background
-            pygame.draw.rect(surf, (30, 30, 40), preview_rect, border_radius=5)
-            pygame.draw.rect(surf, color, preview_rect, 3, border_radius=5)
+            pygame.draw.rect(surf, (30, 30, 40), preview_rect, border_radius=4)
+            pygame.draw.rect(surf, color, preview_rect, 2, border_radius=4)
 
-            # Ability icon (chip style) - larger
-            icon_size = 24
-            icon_x = x + 4
+            # Ability icon (chip style)
+            icon_size = 20
+            icon_x = x + 3
             icon_y = y + 2
             icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
-            pygame.draw.rect(surf, color, icon_rect, border_radius=4)
+            pygame.draw.rect(surf, color, icon_rect, border_radius=3)
 
             # Short name in icon
-            icon_text = FONT.render(short, True, (255, 255, 255))
+            icon_text = FONT_SMALL.render(short, True, (255, 255, 255))
             icon_text_rect = icon_text.get_rect(center=icon_rect.center)
             surf.blit(icon_text, icon_text_rect)
 
-            # Ability name
-            name_text = FONT.render(ability_name[:8], True, COLOR_TEXT)
-            surf.blit(name_text, (icon_x + icon_size + 6, y + 6))
+            # Ability name - compact
+            name_text = FONT_SMALL.render(ability_name[:9], True, COLOR_TEXT)
+            surf.blit(name_text, (icon_x + icon_size + 4, y + 5))
 
             # Progress info
-            y += 34
+            y += 28
 
-            # Current/needed text - larger
-            progress_text = FONT.render(
-                f"{available_orbs}/{cost}",
+            # Current/needed text
+            progress_text = FONT_SMALL.render(
+                f"Orbs: {available_orbs}/{cost}",
                 True, (200, 200, 220)
             )
             surf.blit(progress_text, (x, y))
 
-            y += 20
+            y += 16
 
-            # Progress bar - taller
-            bar_width = self.rect.w - 28
-            bar_height = 12
+            # Progress bar
+            bar_width = self.rect.w - 24
+            bar_height = 14
             bar_x = x
             bar_y = y
 

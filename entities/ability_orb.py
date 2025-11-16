@@ -92,9 +92,10 @@ class AbilityOrb:
 
     def get_current_color(self) -> tuple:
         """Get the current interpolated rainbow color."""
-        idx = int(self.color_index)
+        # Ensure color_index is in valid range with modulo
+        idx = int(self.color_index) % len(self.colors)
         next_idx = (idx + 1) % len(self.colors)
-        t = self.color_index - idx
+        t = (self.color_index % len(self.colors)) - idx
 
         c1 = self.colors[idx]
         c2 = self.colors[next_idx]
