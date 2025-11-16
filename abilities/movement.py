@@ -184,12 +184,14 @@ class Dash(StaminaAbility):
     State:
     - is_active: Whether dash is currently active
     - resource (stamina): Remaining stamina
+    - dash_buffer_timer: Input buffer for dash activation
 
     Mechanics:
     - Hold to activate and increase run speed
     - Drains stamina while active
     - Regenerates stamina when not active
     - Auto-deactivates when stamina depleted
+    - Input buffering for responsive activation
     """
 
     def __init__(self):
@@ -202,6 +204,8 @@ class Dash(StaminaAbility):
         )
         self.is_active = False
         self.speed_multiplier = _config.get('movement', 'dash', 'speed_multiplier', DASH_SPEED_MULT)
+        self.dash_buffer_timer = 0.0
+        self.buffer_time = 0.12  # Buffer window in seconds
 
     def can_use(self, player_state):
         """Can activate dash if we have stamina available."""
@@ -227,7 +231,11 @@ class Dash(StaminaAbility):
         self.is_active = False
 
     def update(self, dt, player_state):
-        """Update stamina drain/regen based on dash state."""
+        """Update stamina drain/regen based on dash state and buffer timer."""
+        # Update dash buffer
+        if self.dash_buffer_timer > 0:
+            self.dash_buffer_timer = max(0.0, self.dash_buffer_timer - dt)
+
         if self.is_active:
             # Drain stamina while dashing
             if not self.drain_stamina(dt):
@@ -247,6 +255,14 @@ class Dash(StaminaAbility):
             self.regenerate_stamina(dt)
 
         return {}
+
+    def request_dash(self):
+        """Called when dash input is pressed to buffer the dash."""
+        self.dash_buffer_timer = self.buffer_time
+
+    def has_buffered_dash(self):
+        """Check if a dash is buffered."""
+        return self.dash_buffer_timer > 0
 
     def is_active_dash(self):
         """Check if dash is currently active."""
@@ -344,6 +360,7 @@ class Slide(CooldownAbility):
     - is_active: Whether slide is currently executing
     - slide_timer: Time remaining in slide
     - direction: Slide direction (1 or -1)
+    - slide_buffer_timer: Input buffer for slide activation
 
     Note: Collision handling must be managed by player.py to prevent
     glitching through terrain. The ability only provides velocity
@@ -359,6 +376,8 @@ class Slide(CooldownAbility):
         self.duration = _config.get('movement', 'slide', 'duration', SLIDE_DURATION)
         self.speed_mult = _config.get('movement', 'slide', 'speed_multiplier', SLIDE_SPEED_MULT)
         self.min_speed = _config.get('movement', 'slide', 'min_speed', SLIDE_MIN_SPEED)
+        self.slide_buffer_timer = 0.0
+        self.buffer_time = 0.10  # Buffer window in seconds
 
     def can_use(self, player_state):
         """Can slide if on ground, moving fast enough, and not on cooldown."""
@@ -389,9 +408,13 @@ class Slide(CooldownAbility):
         }
 
     def update(self, dt, player_state):
-        """Update slide timer and cooldown."""
+        """Update slide timer, cooldown, and buffer."""
         # Update cooldown
         self.update_cooldown(dt)
+
+        # Update slide buffer
+        if self.slide_buffer_timer > 0:
+            self.slide_buffer_timer = max(0.0, self.slide_buffer_timer - dt)
 
         # Update slide timer
         if self.is_active:
@@ -418,6 +441,14 @@ class Slide(CooldownAbility):
     def is_active_slide(self):
         """Check if slide is currently active."""
         return self.is_active
+
+    def request_slide(self):
+        """Called when slide input is pressed to buffer the slide."""
+        self.slide_buffer_timer = self.buffer_time
+
+    def has_buffered_slide(self):
+        """Check if a slide is buffered."""
+        return self.slide_buffer_timer > 0
 
     def reset(self):
         """Reset slide state."""
