@@ -3,7 +3,9 @@ Entity Placement Module - Handles spawning of coins, pickups, powerups, hazards,
 Separated from generator.py for better separation of concerns.
 """
 
+import random
 import pygame
+from typing import List, Tuple, Set, Optional, Dict, Any
 
 from settings import (
     TILE_SIZE,
@@ -24,7 +26,7 @@ from .constants import (
 class EntityPlacer:
     """Handles placement of all entities (coins, pickups, powerups, hazards, ability orbs)."""
 
-    def __init__(self, world, rng):
+    def __init__(self, world: List[List[int]], rng: random.Random) -> None:
         """
         Initialize the entity placer.
 
@@ -36,14 +38,14 @@ class EntityPlacer:
         self.rng = rng
 
     @staticmethod
-    def _valid_pickup_spot(world, tx, ty):
+    def _valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
         """Check if (tx,ty) is a valid pickup spawn location."""
         if not (1 <= tx < WORLD_W - 1 and 2 <= ty < WORLD_H - 1):
             return False
         return world[ty][tx] == 0 and world[ty + 1][tx] == 1
 
     @staticmethod
-    def _far_from_hazards(tx, ty, hazard_tiles, radius=3):
+    def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = 3) -> bool:
         """Check if tile is far enough from hazards."""
         for hx, hy in hazard_tiles:
             if abs(hx - tx) <= radius and hy == ty:
@@ -52,7 +54,7 @@ class EntityPlacer:
                 return False
         return True
 
-    def generate_hazards(self, rate=DEFAULT_HAZARD_RATE):
+    def generate_hazards(self, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:
         """
         Generate spike hazards on platforms.
 
@@ -72,10 +74,13 @@ class EntityPlacer:
                         hazards.append(pygame.Rect(hx, hy, TILE_SIZE - 4, TILE_SIZE // 2))
         return hazards
 
-    def generate_coins_and_pickups(self, coin_density=DEFAULT_COIN_DENSITY,
-                                   health_density=DEFAULT_HEALTH_DENSITY,
-                                   lives_per_level=DEFAULT_LIVES_PER_LEVEL,
-                                   hazards=None):
+    def generate_coins_and_pickups(
+        self,
+        coin_density: float = DEFAULT_COIN_DENSITY,
+        health_density: float = DEFAULT_HEALTH_DENSITY,
+        lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
+        hazards: Optional[List[pygame.Rect]] = None
+    ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
         """
         Generate coins, health, and lives.
 
@@ -136,7 +141,7 @@ class EntityPlacer:
 
         return coins, healths, lives
 
-    def generate_powerups(self, density=DEFAULT_POWERUP_DENSITY):
+    def generate_powerups(self, density: float = DEFAULT_POWERUP_DENSITY) -> List[Dict[str, Any]]:
         """
         Generate typed power-ups (speed, shadow, triple, magnet).
 
@@ -169,7 +174,7 @@ class EntityPlacer:
 
         return powerups
 
-    def generate_ability_orbs(self, spawn_rate=DEFAULT_ABILITY_ORB_SPAWN_RATE):
+    def generate_ability_orbs(self, spawn_rate: float = DEFAULT_ABILITY_ORB_SPAWN_RATE) -> List[pygame.Rect]:
         """
         Generate rare Ability Orb spawn points (0.3% rate by default).
 
@@ -197,38 +202,42 @@ class EntityPlacer:
 
 
 # Standalone helper functions (for backward compatibility if needed)
-def _valid_pickup_spot(world, tx, ty):
+def _valid_pickup_spot(world: List[List[int]], tx: int, ty: int) -> bool:
     """Check if (tx,ty) is a valid pickup spawn location."""
     return EntityPlacer._valid_pickup_spot(world, tx, ty)
 
 
-def _far_from_hazards(tx, ty, hazard_tiles, radius=3):
+def _far_from_hazards(tx: int, ty: int, hazard_tiles: Set[Tuple[int, int]], radius: int = 3) -> bool:
     """Check if tile is far enough from hazards."""
     return EntityPlacer._far_from_hazards(tx, ty, hazard_tiles, radius)
 
 
-def generate_hazards(world, rng, rate=DEFAULT_HAZARD_RATE):
+def generate_hazards(world: List[List[int]], rng: random.Random, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:
     """Generate spike hazards on platforms."""
     placer = EntityPlacer(world, rng)
     return placer.generate_hazards(rate)
 
 
-def generate_coins_and_pickups(world, rng, coin_density=DEFAULT_COIN_DENSITY,
-                               health_density=DEFAULT_HEALTH_DENSITY,
-                               lives_per_level=DEFAULT_LIVES_PER_LEVEL,
-                               hazards=None):
+def generate_coins_and_pickups(
+    world: List[List[int]],
+    rng: random.Random,
+    coin_density: float = DEFAULT_COIN_DENSITY,
+    health_density: float = DEFAULT_HEALTH_DENSITY,
+    lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
+    hazards: Optional[List[pygame.Rect]] = None
+) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
     """Generate coins, health, and lives."""
     placer = EntityPlacer(world, rng)
     return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards)
 
 
-def generate_powerups(world, rng, density=DEFAULT_POWERUP_DENSITY):
+def generate_powerups(world: List[List[int]], rng: random.Random, density: float = DEFAULT_POWERUP_DENSITY) -> List[Dict[str, Any]]:
     """Generate typed power-ups (speed, shadow, triple, magnet)."""
     placer = EntityPlacer(world, rng)
     return placer.generate_powerups(density)
 
 
-def generate_ability_orbs(world, rng, spawn_rate=DEFAULT_ABILITY_ORB_SPAWN_RATE):
+def generate_ability_orbs(world: List[List[int]], rng: random.Random, spawn_rate: float = DEFAULT_ABILITY_ORB_SPAWN_RATE) -> List[pygame.Rect]:
     """Generate rare Ability Orb spawn points."""
     placer = EntityPlacer(world, rng)
     return placer.generate_ability_orbs(spawn_rate)
