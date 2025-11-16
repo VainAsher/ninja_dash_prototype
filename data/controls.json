@@ -3,20 +3,20 @@
   "description": "Ninja Dash - Data-driven control configuration",
   "keyboard": {
     "movement": {
-      "move_left": ["a", "left"],
-      "move_right": ["d", "right"],
-      "crouch_down": ["s", "down"],
-      "jump": ["space", "w", "up"]
+      "move_left": ["left"],
+      "move_right": ["right"],
+      "crouch_down": ["down"],
+      "jump": ["up", "space"]
     },
     "abilities": {
-      "dash": ["lshift", "rshift"],
-      "shadow_step": ["q"],
+      "dash": ["lshift"],
+      "shadow_step": ["lctrl"],
       "grapple": ["e"],
-      "ground_pound": ["lctrl", "rctrl"],
+      "ground_pound": ["s"],
       "air_dodge": ["x"],
       "slide": ["c"],
       "glide": ["hold:space"],
-      "wall_cling": ["hold:a|d"],
+      "wall_cling": ["hold:left|right"],
       "time_slow": ["z"],
       "teleport": ["r"]
     },
@@ -80,13 +80,27 @@
     "tab": "Tab",
     "mouse1": "Left Click",
     "mouse2": "Right Click",
-    "a": "A",
-    "d": "D",
-    "s": "S",
-    "w": "W",
     "left": "←",
     "right": "→",
     "up": "↑",
-    "down": "↓"
+    "down": "↓",
+    "e": "E",
+    "r": "R",
+    "s": "S",
+    "x": "X",
+    "z": "Z",
+    "c": "C",
+    "j": "J",
+    "k": "K",
+    "l": "L",
+    "i": "I",
+    "m": "M",
+    "n": "N",
+    "p": "P",
+    "f1": "F1",
+    "f3": "F3",
+    "f4": "F4",
+    "f5": "F5",
+    "f9": "F9"
   }
 }

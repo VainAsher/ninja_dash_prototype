@@ -158,23 +158,26 @@ class ControlsManager:
         """Load minimal fallback controls if config file is missing."""
         print("Loading fallback controls...")
 
-        # Essential movement
+        # Essential movement - ARROW KEYS ONLY
         self.actions["movement.move_left"] = ControlAction(
-            "movement.move_left", ["a", "left"]
+            "movement.move_left", ["left"]
         )
         self.actions["movement.move_right"] = ControlAction(
-            "movement.move_right", ["d", "right"]
+            "movement.move_right", ["right"]
         )
         self.actions["movement.jump"] = ControlAction(
-            "movement.jump", ["space", "w", "up"]
+            "movement.jump", ["up", "space"]
         )
         self.actions["movement.crouch_down"] = ControlAction(
-            "movement.crouch_down", ["s", "down"]
+            "movement.crouch_down", ["down"]
         )
 
         # Essential abilities
         self.actions["abilities.dash"] = ControlAction(
-            "abilities.dash", ["lshift", "rshift"]
+            "abilities.dash", ["lshift"]
+        )
+        self.actions["abilities.shadow_step"] = ControlAction(
+            "abilities.shadow_step", ["lctrl"]
         )
 
         # Essential UI
@@ -186,7 +189,9 @@ class ControlsManager:
             "movement.move_left", "movement.move_right",
             "movement.jump", "movement.crouch_down"
         ]
-        self.categories["abilities"] = ["abilities.dash"]
+        self.categories["abilities"] = [
+            "abilities.dash", "abilities.shadow_step"
+        ]
         self.categories["ui"] = ["ui.pause"]
 
     def load_user_bindings(self) -> None:
