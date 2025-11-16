@@ -3,10 +3,10 @@
   "description": "Ninja Dash - Data-driven control configuration",
   "keyboard": {
     "movement": {
-      "move_left": ["a", "left"],
-      "move_right": ["d", "right"],
-      "crouch_down": ["s", "down"],
-      "jump": ["space", "w", "up"]
+      "move_left": ["left", "a"],
+      "move_right": ["right", "d"],
+      "crouch_down": ["down", "s"],
+      "jump": ["space", "up"]
     },
     "abilities": {
       "dash": ["lshift", "rshift"],
@@ -16,13 +16,15 @@
       "air_dodge": ["x"],
       "slide": ["c"],
       "glide": ["hold:space"],
-      "wall_cling": ["hold:a|d"],
+      "wall_cling": ["hold:left|right"],
       "time_slow": ["z"],
-      "teleport": ["r"]
+      "teleport": ["r"],
+      "double_jump": ["space", "up"],
+      "wall_jump": ["space", "up"]
     },
     "combat": {
-      "melee_attack": ["j", "mouse1"],
-      "ranged_attack": ["k", "mouse2"],
+      "melee_attack": ["j"],
+      "ranged_attack": ["k"],
       "special_attack": ["l"],
       "block_parry": ["i"]
     },
@@ -32,13 +34,21 @@
       "map": ["m"],
       "quests": ["n"],
       "stats": ["p"],
-      "controls_help": ["f1"]
+      "controls_help": ["h"]
     },
     "debug": {
-      "toggle_debug": ["f3"],
-      "toggle_hitboxes": ["f4"],
-      "reload_level": ["f5"],
-      "god_mode": ["f9"]
+      "toggle_double_jump": ["f1"],
+      "toggle_dash": ["f2"],
+      "toggle_slide": ["f3"],
+      "toggle_shadow_step": ["f4"],
+      "toggle_wall_cling": ["f5"],
+      "toggle_air_dodge": ["f6"],
+      "toggle_glide": ["f7"],
+      "toggle_sword_attack": ["f8"],
+      "toggle_grapple": ["f9"],
+      "toggle_debug_overlay": ["f10"],
+      "toggle_hitboxes": ["f11"],
+      "reload_level": ["f12"]
     }
   },
   "gamepad": {

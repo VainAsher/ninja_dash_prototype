@@ -20,6 +20,9 @@ from settings import (
     FEATURES,
 )
 
+# Import controls system
+from controls import get_controls_manager
+
 # Import ability classes
 from abilities.movement import DoubleJump, Dash, WallJump, Slide
 from abilities.advanced import ShadowStep, WallCling, AirDodge, Glide
@@ -84,6 +87,9 @@ class Player:
 
         # === COMBO SYSTEM ===
         self.combo_tracker = ComboTracker()
+
+        # === CONTROLS SYSTEM ===
+        self.controls = get_controls_manager()
 
         # === ABILITY SYSTEM ===
         # Movement abilities
@@ -379,58 +385,67 @@ class Player:
                 self._enter_crouch()
 
     def _handle_input(self, keys, tiles):
-        """Process player input and trigger abilities."""
-        # Get input state
-        left = keys[pygame.K_a] or keys[pygame.K_LEFT]
-        right = keys[pygame.K_d] or keys[pygame.K_RIGHT]
-        down_now = keys[pygame.K_s] or keys[pygame.K_DOWN]
-        jump_down = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+        """Process player input and trigger abilities using ControlsManager."""
+        # Get input state using controls manager
+        left = self.controls.is_action_pressed('movement.move_left', keys)
+        right = self.controls.is_action_pressed('movement.move_right', keys)
+        down_now = self.controls.is_action_pressed('movement.crouch_down', keys)
+        jump_down = self.controls.is_action_pressed('movement.jump', keys)
 
-        # DEBUG: F-key controls for ability testing
-        if keys[pygame.K_F1] and not getattr(self, '_f1_held', False):
+        # DEBUG: F-key controls for ability testing (using controls manager)
+        toggle_double_jump = self.controls.is_action_pressed('debug.toggle_double_jump', keys)
+        if toggle_double_jump and not getattr(self, '_f1_held', False):
             self.abilities['double_jump'].enabled = not self.abilities['double_jump'].enabled
             print(f"[DEBUG] Double Jump: {'ENABLED' if self.abilities['double_jump'].enabled else 'DISABLED'}")
-        self._f1_held = keys[pygame.K_F1]
+        self._f1_held = toggle_double_jump
 
-        if keys[pygame.K_F2] and not getattr(self, '_f2_held', False):
+        toggle_dash = self.controls.is_action_pressed('debug.toggle_dash', keys)
+        if toggle_dash and not getattr(self, '_f2_held', False):
             self.abilities['dash'].enabled = not self.abilities['dash'].enabled
             print(f"[DEBUG] Dash: {'ENABLED' if self.abilities['dash'].enabled else 'DISABLED'}")
-        self._f2_held = keys[pygame.K_F2]
+        self._f2_held = toggle_dash
 
-        if keys[pygame.K_F3] and not getattr(self, '_f3_held', False):
+        toggle_slide = self.controls.is_action_pressed('debug.toggle_slide', keys)
+        if toggle_slide and not getattr(self, '_f3_held', False):
             self.abilities['slide'].enabled = not self.abilities['slide'].enabled
             print(f"[DEBUG] Slide: {'ENABLED' if self.abilities['slide'].enabled else 'DISABLED'}")
-        self._f3_held = keys[pygame.K_F3]
+        self._f3_held = toggle_slide
 
-        if keys[pygame.K_F4] and not getattr(self, '_f4_held', False):
+        toggle_shadow_step = self.controls.is_action_pressed('debug.toggle_shadow_step', keys)
+        if toggle_shadow_step and not getattr(self, '_f4_held', False):
             self.abilities['shadow_step'].enabled = not self.abilities['shadow_step'].enabled
             print(f"[DEBUG] Shadow Step: {'ENABLED' if self.abilities['shadow_step'].enabled else 'DISABLED'}")
-        self._f4_held = keys[pygame.K_F4]
+        self._f4_held = toggle_shadow_step
 
-        if keys[pygame.K_F5] and not getattr(self, '_f5_held', False):
+        toggle_wall_cling = self.controls.is_action_pressed('debug.toggle_wall_cling', keys)
+        if toggle_wall_cling and not getattr(self, '_f5_held', False):
             self.abilities['wall_cling'].enabled = not self.abilities['wall_cling'].enabled
             print(f"[DEBUG] Wall Cling: {'ENABLED' if self.abilities['wall_cling'].enabled else 'DISABLED'}")
-        self._f5_held = keys[pygame.K_F5]
+        self._f5_held = toggle_wall_cling
 
-        if keys[pygame.K_F6] and not getattr(self, '_f6_held', False):
+        toggle_air_dodge = self.controls.is_action_pressed('debug.toggle_air_dodge', keys)
+        if toggle_air_dodge and not getattr(self, '_f6_held', False):
             self.abilities['air_dodge'].enabled = not self.abilities['air_dodge'].enabled
             print(f"[DEBUG] Air Dodge: {'ENABLED' if self.abilities['air_dodge'].enabled else 'DISABLED'}")
-        self._f6_held = keys[pygame.K_F6]
+        self._f6_held = toggle_air_dodge
 
-        if keys[pygame.K_F7] and not getattr(self, '_f7_held', False):
+        toggle_glide = self.controls.is_action_pressed('debug.toggle_glide', keys)
+        if toggle_glide and not getattr(self, '_f7_held', False):
             self.abilities['glide'].enabled = not self.abilities['glide'].enabled
             print(f"[DEBUG] Glide: {'ENABLED' if self.abilities['glide'].enabled else 'DISABLED'}")
-        self._f7_held = keys[pygame.K_F7]
+        self._f7_held = toggle_glide
 
-        if keys[pygame.K_F8] and not getattr(self, '_f8_held', False):
+        toggle_sword = self.controls.is_action_pressed('debug.toggle_sword_attack', keys)
+        if toggle_sword and not getattr(self, '_f8_held', False):
             self.abilities['sword_attack'].enabled = not self.abilities['sword_attack'].enabled
             print(f"[DEBUG] Sword Attack: {'ENABLED' if self.abilities['sword_attack'].enabled else 'DISABLED'}")
-        self._f8_held = keys[pygame.K_F8]
+        self._f8_held = toggle_sword
 
-        if keys[pygame.K_F9] and not getattr(self, '_f9_held', False):
+        toggle_grapple = self.controls.is_action_pressed('debug.toggle_grapple', keys)
+        if toggle_grapple and not getattr(self, '_f9_held', False):
             self.abilities['grapple_hook'].enabled = not self.abilities['grapple_hook'].enabled
             print(f"[DEBUG] Grapple Hook: {'ENABLED' if self.abilities['grapple_hook'].enabled else 'DISABLED'}")
-        self._f9_held = keys[pygame.K_F9]
+        self._f9_held = toggle_grapple
 
         # Wall jump can lock horizontal input
         if self.abilities['wall_jump'].is_input_locked():
@@ -459,8 +474,8 @@ class Player:
 
         # === ABILITY ACTIVATION ===
 
-        # Shadow Step (Q key)
-        shadow_step_pressed = keys[pygame.K_q]
+        # Shadow Step (using controls manager)
+        shadow_step_pressed = self.controls.is_action_pressed('abilities.shadow_step', keys)
         if shadow_step_pressed and not self._shadow_step_held:
             ability = self.abilities['shadow_step']
             if ability.enabled and ability.can_use(player_state):
@@ -471,8 +486,8 @@ class Player:
                 emit_ability_start("SHADOW_STEP")
         self._shadow_step_held = shadow_step_pressed
 
-        # Dash (Shift) - NEW: Hold to activate, release to deactivate
-        dash_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        # Dash - Hold to activate, release to deactivate (using controls manager)
+        dash_pressed = self.controls.is_action_pressed('abilities.dash', keys)
         if FEATURES.get("dash", True):
             ability = self.abilities['dash']
             if dash_pressed:
@@ -492,8 +507,8 @@ class Player:
                     self.is_dashing = False
         self._dash_held = dash_pressed
 
-        # Slide (C key)
-        slide_key = keys[pygame.K_c]
+        # Slide (using controls manager)
+        slide_key = self.controls.is_action_pressed('abilities.slide', keys)
         if slide_key and not self._slide_key_held:
             ability = self.abilities['slide']
             if ability.enabled and ability.can_use(player_state):
@@ -515,8 +530,8 @@ class Player:
                 self.combo_tracker.record_ability_use("WALL_CLING")
                 emit_ability_start("WALL_CLING")
 
-        # Air Dodge (X key) - NEW: Hang time support
-        air_dodge_key = keys[pygame.K_x]
+        # Air Dodge - Hang time support (using controls manager)
+        air_dodge_key = self.controls.is_action_pressed('abilities.air_dodge', keys)
         ability = self.abilities['air_dodge']
         if air_dodge_key and not self._air_dodge_held:
             if ability.enabled and ability.can_use(player_state):
@@ -531,7 +546,7 @@ class Player:
                 self.combo_tracker.record_ability_use("AIR_DODGE")
                 emit_ability_start("AIR_DODGE")
 
-        # NEW: Update direction during hang time
+        # Update direction during hang time
         if ability.enabled and hasattr(ability, 'is_hanging') and ability.is_hanging:
             dodge_x = (-1 if left else 0) + (1 if right else 0)
             dodge_y = (-1 if jump_down else 0) + (1 if down_now else 0)
@@ -660,8 +675,8 @@ class Player:
 
     def _apply_gravity(self, keys):
         """Apply gravity and vertical movement modifiers."""
-        down = keys[pygame.K_s] or keys[pygame.K_DOWN]
-        jump_held = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+        down = self.controls.is_action_pressed('movement.crouch_down', keys)
+        jump_held = self.controls.is_action_pressed('movement.jump', keys)
 
         # Air Dodge (dodging phase) and Glide handle their own vertical movement
         if self.is_air_dodging or self.is_gliding:
