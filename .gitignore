@@ -40,3 +40,8 @@ Thumbs.db
 *.pyc
 highscores.json
 save_data.json
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
