@@ -29,6 +29,17 @@ from powerups import PowerupManager
 # Import physics and state management
 from physics.player_collider import PlayerCollider
 
+# Import combo system
+from abilities.combos import ComboTracker
+
+# Import animation events (for future animation system)
+from abilities.animation_events import (
+    emit_ability_start,
+    emit_ability_end,
+    emit_impact,
+    emit_particle_burst
+)
+
 
 class Player:
     """
@@ -70,6 +81,9 @@ class Player:
 
         # === PHYSICS & COLLISION ===
         self.collider = PlayerCollider()
+
+        # === COMBO SYSTEM ===
+        self.combo_tracker = ComboTracker()
 
         # === ABILITY SYSTEM ===
         # Movement abilities
@@ -170,8 +184,11 @@ class Player:
         self._update_timers(dt)
         self.powerup_manager.update(dt)
 
-        # Update all abilities
-        self._update_abilities(dt)
+        # Update combo tracker
+        combo_effects = self.combo_tracker.update(dt)
+
+        # Update all abilities (with combo effects applied)
+        self._update_abilities(dt, combo_effects)
 
         # Handle input
         self._handle_input(keys, tiles)
@@ -266,8 +283,11 @@ class Player:
         if self.inv_timer > 0.0:
             self.inv_timer = max(0.0, self.inv_timer - dt)
 
-    def _update_abilities(self, dt):
-        """Update all ability states."""
+    def _update_abilities(self, dt, combo_effects=None):
+        """Update all ability states with combo effects applied."""
+        if combo_effects is None:
+            combo_effects = {}
+
         # Build player state for abilities
         player_state = self._get_player_state()
 
@@ -446,6 +466,9 @@ class Player:
             if ability.enabled and ability.can_use(player_state):
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("SHADOW_STEP")
+                emit_ability_start("SHADOW_STEP")
         self._shadow_step_held = shadow_step_pressed
 
         # Dash (Shift) - NEW: Hold to activate, release to deactivate
@@ -455,8 +478,13 @@ class Player:
             if dash_pressed:
                 # Holding dash - activate or maintain
                 if ability.can_use(player_state):
+                    was_active = ability.is_active
                     modifications = ability.use(player_state, input_state)
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking (only on first activation)
+                    if not was_active and ability.is_active:
+                        self.combo_tracker.record_ability_use("DASH")
+                        emit_ability_start("DASH")
             else:
                 # Released dash - deactivate
                 if self._dash_held:  # Was holding, now released
@@ -471,13 +499,21 @@ class Player:
             if ability.enabled and ability.can_use(player_state):
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("SLIDE")
+                emit_ability_start("SLIDE")
         self._slide_key_held = slide_key
 
         # Wall Cling (hold toward wall)
         ability = self.abilities['wall_cling']
         if ability.enabled:
+            was_active = ability.is_active
             modifications = ability.use(player_state, input_state)
             self._apply_ability_modifications(modifications)
+            # Record for combo tracking (only on first activation)
+            if not was_active and ability.is_active:
+                self.combo_tracker.record_ability_use("WALL_CLING")
+                emit_ability_start("WALL_CLING")
 
         # Air Dodge (X key) - NEW: Hang time support
         air_dodge_key = keys[pygame.K_x]
@@ -491,6 +527,9 @@ class Player:
                 input_state['dodge_y'] = dodge_y
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("AIR_DODGE")
+                emit_ability_start("AIR_DODGE")
 
         # NEW: Update direction during hang time
         if ability.enabled and hasattr(ability, 'is_hanging') and ability.is_hanging:
@@ -505,9 +544,14 @@ class Player:
         # Glide (hold jump while falling)
         ability = self.abilities['glide']
         if ability.enabled:
+            was_active = ability.is_active
             input_state['jump_held'] = jump_down
             modifications = ability.use(player_state, input_state)
             self._apply_ability_modifications(modifications)
+            # Record for combo tracking (only on first activation)
+            if not was_active and ability.is_active:
+                self.combo_tracker.record_ability_use("GLIDE")
+                emit_ability_start("GLIDE")
 
         # === HORIZONTAL MOVEMENT ===
         # Only apply manual movement if no ability is controlling velocity
@@ -577,6 +621,7 @@ class Player:
                 modifications = double_jump.use(player_state, input_state)
                 if modifications:
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking (ground jump doesn't combo, only air jumps)
                     return
 
             # Try wall jump
@@ -589,6 +634,10 @@ class Player:
                         # Reset jump count after wall jump
                         double_jump.jumps_left = double_jump.max_jumps - 1
                         double_jump.jump_buffer_timer = 0.0
+                        # Record for combo tracking
+                        self.combo_tracker.record_ability_use("WALL_JUMP")
+                        emit_ability_start("WALL_JUMP")
+                        emit_impact("WALL_JUMP")
                         return
 
             # Try double jump
@@ -596,6 +645,10 @@ class Player:
                 modifications = double_jump.use(player_state, input_state)
                 if modifications:
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking
+                    self.combo_tracker.record_ability_use("DOUBLE_JUMP")
+                    emit_ability_start("DOUBLE_JUMP")
+                    emit_particle_burst("DOUBLE_JUMP")
 
                     # NEW: Consume extra jump powerup use if using extra jump
                     extra_jumps = self.powerup_manager.get_extra_jumps()
