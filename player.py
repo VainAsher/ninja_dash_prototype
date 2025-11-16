@@ -26,6 +26,9 @@ from abilities.advanced import ShadowStep, WallCling, AirDodge, Glide
 from abilities.combat import SwordAttack, GrappleHook
 from powerups import PowerupManager
 
+# Import physics and state management
+from physics.player_collider import PlayerCollider
+
 
 class Player:
     """
@@ -64,6 +67,9 @@ class Player:
         self.user_max_speed = None
         self.user_gravity = None
         self.user_jump_power = None
+
+        # === PHYSICS & COLLISION ===
+        self.collider = PlayerCollider()
 
         # === ABILITY SYSTEM ===
         # Movement abilities
@@ -638,65 +644,17 @@ class Player:
         if phaseable_walls is None:
             phaseable_walls = []
 
-        # NEW: During smoke step, ignore phaseable walls (doors only)
-        collision_tiles = tiles
-        if self.is_smoke_stepping:
-            # Can phase through phaseable walls (doors/walls, not floors)
-            collision_tiles = [t for t in tiles if t not in phaseable_walls]
-
-        # CAP: Limit velocity during slide to prevent glitching through collisions
-        if self.is_sliding:
-            max_slide_speed = MAX_RUN_SPEED * 1.5  # Cap slide speed
-            if abs(self.vx) > max_slide_speed:
-                self.vx = max_slide_speed * (1 if self.vx > 0 else -1)
-
-        # Horizontal movement and collision
-        self.rect.x += int(round(self.vx))
-        self.on_wall = False
-        self.wall_dir = 0
-
-        for t in collision_tiles:
-            if self.rect.colliderect(t):
-                if self.vx > 0:
-                    self.rect.right = t.left
-                    self.on_wall = True
-                    self.wall_dir = 1
-                elif self.vx < 0:
-                    self.rect.left = t.right
-                    self.on_wall = True
-                    self.wall_dir = -1
-                self.vx = 0.0
-
-        # Vertical movement and collision
-        self.rect.y += int(round(self.vy))
-        self.on_ground = False
-
-        for t in collision_tiles:
-            if self.rect.colliderect(t):
-                if self.vy > 0:
-                    self.rect.bottom = t.top
-                    self.vy = 0.0
-                    self.on_ground = True
-                elif self.vy < 0:
-                    self.rect.top = t.bottom
-                    self.vy = 0.0
-
-        # World border checks - push player back into viewable area
-        from settings import WORLD_PX_W, WORLD_PX_H
-
-        if self.rect.left < 0:
-            self.rect.left = 0
-            self.vx = max(0, self.vx)  # Stop leftward movement
-        elif self.rect.right > WORLD_PX_W:
-            self.rect.right = WORLD_PX_W
-            self.vx = min(0, self.vx)  # Stop rightward movement
-
-        if self.rect.top < 0:
-            self.rect.top = 0
-            self.vy = max(0, self.vy)  # Stop upward movement
-        elif self.rect.bottom > WORLD_PX_H:
-            self.rect.bottom = WORLD_PX_H
-            self.vy = min(0, self.vy)  # Stop downward movement
+        # Use the PlayerCollider to handle all collision logic
+        self.vx, self.vy, self.on_ground, self.on_wall, self.wall_dir = \
+            self.collider.move_and_collide(
+                self.rect,
+                self.vx,
+                self.vy,
+                tiles,
+                phaseable_walls,
+                self.is_smoke_stepping,
+                self.is_sliding
+            )
 
     def _enter_crouch(self):
         """Enter crouch state."""
@@ -713,12 +671,10 @@ class Player:
         if not self.crouching:
             return
 
-        diff = self.normal_height - self.crouch_height
-        test_rect = pygame.Rect(self.rect.x, self.rect.y - diff,
-                                self.width, self.normal_height)
-
-        if not any(test_rect.colliderect(t) for t in tiles):
-            self.rect = test_rect
+        if self.collider.check_can_uncrouch(self.rect, self.width, self.normal_height, tiles):
+            diff = self.normal_height - self.crouch_height
+            self.rect.y -= diff
+            self.rect.height = self.normal_height
             self.crouching = False
 
     # ===== BACKWARD COMPATIBILITY PROPERTIES =====

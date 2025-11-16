@@ -11,6 +11,7 @@ This module contains advanced movement abilities:
 import math
 import pygame
 from abilities import Ability, ResourceAbility, CooldownAbility
+from data.ability_config import get_ability_config
 from settings import (
     SHADOW_STEP_CHARGES, SHADOW_STEP_DURATION, SHADOW_STEP_INVULN_TIME,
     SHADOW_STEP_SPEED, SHADOW_STEP_COOLDOWN, SHADOW_STEP_PHASE_DOORS_ONLY,
@@ -19,6 +20,9 @@ from settings import (
     AIR_DODGE_INVULN_TIME, AIR_DODGE_COOLDOWN, AIR_DODGE_MAX_USES,
     GLIDE_FALL_SPEED, GLIDE_HORIZONTAL_MULT, GLIDE_MAX_DURATION, GLIDE_HORIZONTAL_ACCEL,
 )
+
+# Load ability configuration
+_config = get_ability_config()
 
 
 class ShadowStep(ResourceAbility):
@@ -45,15 +49,21 @@ class ShadowStep(ResourceAbility):
     """
 
     def __init__(self):
-        super().__init__("SHADOW_STEP", SHADOW_STEP_CHARGES, "charges")
+        # Load from config with fallback to settings.py
+        super().__init__(
+            "SHADOW_STEP",
+            _config.get('advanced', 'shadow_step', 'charges', SHADOW_STEP_CHARGES),
+            "charges"
+        )
         self.is_active = False
         self.smoke_timer = 0.0
         self.direction = 1
-        self.duration = SHADOW_STEP_DURATION
-        self.speed = SHADOW_STEP_SPEED
+        self.duration = _config.get('advanced', 'shadow_step', 'duration', SHADOW_STEP_DURATION)
+        self.speed = _config.get('advanced', 'shadow_step', 'speed', SHADOW_STEP_SPEED)
         self.cooldown_timer = 0.0
-        self.cooldown_duration = SHADOW_STEP_COOLDOWN
-        self.phase_doors_only = SHADOW_STEP_PHASE_DOORS_ONLY
+        self.cooldown_duration = _config.get('advanced', 'shadow_step', 'cooldown', SHADOW_STEP_COOLDOWN)
+        self.phase_doors_only = _config.get('advanced', 'shadow_step', 'phase_doors_only', SHADOW_STEP_PHASE_DOORS_ONLY)
+        self.invuln_time = _config.get('advanced', 'shadow_step', 'invuln_time', SHADOW_STEP_INVULN_TIME)
 
     def can_use(self, player_state):
         """Can use if we have charges and not on cooldown."""
@@ -149,10 +159,11 @@ class WallCling(ResourceAbility):
     """
 
     def __init__(self):
-        super().__init__("WALL_CLING", WALL_CLING_STAMINA, "stamina")
+        stamina_max = _config.get('advanced', 'wall_cling', 'stamina_max', WALL_CLING_STAMINA)
+        super().__init__("WALL_CLING", stamina_max, "stamina")
         self.is_active = False
-        self.slide_speed = WALL_CLING_SLIDE_SPEED
-        self.regen_rate = WALL_CLING_STAMINA_REGEN
+        self.slide_speed = _config.get('advanced', 'wall_cling', 'slide_speed', WALL_CLING_SLIDE_SPEED)
+        self.regen_rate = _config.get('advanced', 'wall_cling', 'stamina_regen', WALL_CLING_STAMINA_REGEN)
 
     def can_use(self, player_state):
         """Can cling if on wall, not on ground, and have stamina."""
@@ -244,19 +255,21 @@ class AirDodge(CooldownAbility):
     """
 
     def __init__(self):
-        super().__init__("AIR_DODGE", AIR_DODGE_COOLDOWN)
+        cooldown = _config.get('advanced', 'air_dodge', 'cooldown', AIR_DODGE_COOLDOWN)
+        super().__init__("AIR_DODGE", cooldown)
         self.is_hanging = False
         self.is_dodging = False
         self.hang_timer = 0.0
         self.dodge_timer = 0.0
         self.invuln_timer = 0.0
-        self.uses_left = AIR_DODGE_MAX_USES
-        self.max_uses = AIR_DODGE_MAX_USES
+        self.max_uses = _config.get('advanced', 'air_dodge', 'max_uses', AIR_DODGE_MAX_USES)
+        self.uses_left = self.max_uses
         self.direction = (1, 0)
-        self.hang_duration = AIR_DODGE_HANG_TIME
-        self.dodge_duration = AIR_DODGE_DURATION
-        self.speed = AIR_DODGE_SPEED
-        self.hang_gravity_mult = AIR_DODGE_HANG_GRAVITY_MULT
+        self.hang_duration = _config.get('advanced', 'air_dodge', 'hang_time', AIR_DODGE_HANG_TIME)
+        self.dodge_duration = _config.get('advanced', 'air_dodge', 'duration', AIR_DODGE_DURATION)
+        self.speed = _config.get('advanced', 'air_dodge', 'speed', AIR_DODGE_SPEED)
+        self.hang_gravity_mult = _config.get('advanced', 'air_dodge', 'hang_gravity_mult', AIR_DODGE_HANG_GRAVITY_MULT)
+        self.invuln_time = _config.get('advanced', 'air_dodge', 'invuln_time', AIR_DODGE_INVULN_TIME)
 
     @property
     def is_active(self):
@@ -338,7 +351,7 @@ class AirDodge(CooldownAbility):
                 self.is_hanging = False
                 self.is_dodging = True
                 self.dodge_timer = self.dodge_duration
-                self.invuln_timer = AIR_DODGE_INVULN_TIME
+                self.invuln_timer = self.invuln_time
 
                 # Begin dodge movement
                 return {
@@ -422,10 +435,10 @@ class Glide(Ability):
         super().__init__("GLIDE")
         self.is_active = False
         self.glide_timer = 0.0
-        self.fall_speed = GLIDE_FALL_SPEED
-        self.horizontal_mult = GLIDE_HORIZONTAL_MULT  # Now > 1.0 for enhancement
-        self.horizontal_accel = GLIDE_HORIZONTAL_ACCEL
-        self.max_duration = GLIDE_MAX_DURATION
+        self.fall_speed = _config.get('advanced', 'glide', 'fall_speed', GLIDE_FALL_SPEED)
+        self.horizontal_mult = _config.get('advanced', 'glide', 'horizontal_mult', GLIDE_HORIZONTAL_MULT)  # Now > 1.0 for enhancement
+        self.horizontal_accel = _config.get('advanced', 'glide', 'horizontal_accel', GLIDE_HORIZONTAL_ACCEL)
+        self.max_duration = _config.get('advanced', 'glide', 'max_duration', GLIDE_MAX_DURATION)
 
     def can_use(self, player_state):
         """Can glide if in air and falling."""

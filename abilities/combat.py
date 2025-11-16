@@ -12,6 +12,7 @@ Future additions:
 
 import pygame
 from abilities import Ability, CooldownAbility, AmmoAbility
+from data.ability_config import get_ability_config
 
 
 # ================= SWORD ATTACK SETTINGS =================
@@ -21,6 +22,9 @@ SWORD_ATTACK_RANGE = 40  # Pixels
 SWORD_ATTACK_COOLDOWN = 0.3  # Between attacks
 SWORD_ATTACK_DURATION = 0.2  # Attack animation duration
 SWORD_BLOCK_HOLD_TIME = 0.15  # How long to hold before block activates
+
+# Load ability configuration
+_config = get_ability_config()
 
 
 class SwordAttack(CooldownAbility):
@@ -44,15 +48,16 @@ class SwordAttack(CooldownAbility):
     """
 
     def __init__(self):
-        super().__init__("SWORD_ATTACK", SWORD_ATTACK_COOLDOWN)
+        cooldown = _config.get('combat', 'sword_attack', 'cooldown', SWORD_ATTACK_COOLDOWN)
+        super().__init__("SWORD_ATTACK", cooldown)
         self.is_attacking = False
         self.is_blocking = False
         self.attack_timer = 0.0
         self.hold_timer = 0.0
-        self.damage = SWORD_ATTACK_DAMAGE
-        self.range = SWORD_ATTACK_RANGE
-        self.attack_duration = SWORD_ATTACK_DURATION
-        self.block_hold_time = SWORD_BLOCK_HOLD_TIME
+        self.damage = _config.get('combat', 'sword_attack', 'damage', SWORD_ATTACK_DAMAGE)
+        self.range = _config.get('combat', 'sword_attack', 'range', SWORD_ATTACK_RANGE)
+        self.attack_duration = _config.get('combat', 'sword_attack', 'attack_duration', SWORD_ATTACK_DURATION)
+        self.block_hold_time = _config.get('combat', 'sword_attack', 'block_hold_time', SWORD_BLOCK_HOLD_TIME)
 
     def can_use(self, player_state):
         """Can attack if not currently attacking and not on cooldown."""
@@ -198,13 +203,14 @@ class GrappleHook(CooldownAbility):
     """
 
     def __init__(self):
-        super().__init__("GRAPPLE_HOOK", cooldown_duration=1.0)
+        cooldown = _config.get('combat', 'grapple_hook', 'cooldown', 1.0)
+        super().__init__("GRAPPLE_HOOK", cooldown_duration=cooldown)
         self.is_active = False
         self.grapple_timer = 0.0
         self.target = None
-        self.max_range = 200  # Pixels
-        self.pull_force = 10.0
-        self.duration = 1.5  # Max grapple extension time
+        self.max_range = _config.get('combat', 'grapple_hook', 'range', 200)  # Pixels
+        self.pull_force = _config.get('combat', 'grapple_hook', 'pull_speed', 10.0)
+        self.duration = _config.get('combat', 'grapple_hook', 'duration', 1.5)  # Max grapple extension time
 
     def can_use(self, player_state):
         """Can use if not active and not on cooldown."""

@@ -10,6 +10,7 @@ This module contains the fundamental movement abilities:
 
 import pygame
 from abilities import Ability, CooldownAbility, StaminaAbility
+from data.ability_config import get_ability_config
 from settings import (
     JUMP_POWER, JUMP_POWER_SECOND, JUMP_HORIZONTAL_BOOST_SECOND, MAX_JUMPS,
     DASH_STAMINA_MAX, DASH_STAMINA_DRAIN, DASH_STAMINA_REGEN, DASH_SPEED_MULT,
@@ -19,6 +20,9 @@ from settings import (
     CROUCH_JUMP_MULT,
     MAX_RUN_SPEED,
 )
+
+# Load ability configuration
+_config = get_ability_config()
 
 
 class DoubleJump(Ability):
@@ -38,11 +42,19 @@ class DoubleJump(Ability):
 
     def __init__(self):
         super().__init__("DOUBLE_JUMP")
-        self.max_jumps = MAX_JUMPS
+        # Load from config with fallback to settings.py
+        self.max_jumps = _config.get('movement', 'double_jump', 'max_jumps', MAX_JUMPS)
         self.jumps_left = self.max_jumps
         self.jump_buffer_timer = 0.0
         self.coyote_timer = 0.0
         self.jumps_used = 0  # Track which jump we're on
+
+        # Load jump parameters from config
+        self.jump_power_first = _config.get('movement', 'double_jump', 'jump_power_first', JUMP_POWER)
+        self.jump_power_second = _config.get('movement', 'double_jump', 'jump_power_second', JUMP_POWER_SECOND)
+        self.horizontal_boost_second = _config.get('movement', 'double_jump', 'jump_horizontal_boost_second', JUMP_HORIZONTAL_BOOST_SECOND)
+        self.coyote_time = _config.get('movement', 'double_jump', 'coyote_time', COYOTE_TIME)
+        self.buffer_time = _config.get('movement', 'double_jump', 'jump_buffer_time', JUMP_BUFFER_TIME)
 
     def can_use(self, player_state):
         """Can use if we have jumps remaining or in coyote time."""
@@ -93,11 +105,11 @@ class DoubleJump(Ability):
 
             # Second+ jump: More horizontal-focused
             # Reduced vertical power, boost horizontal velocity
-            vertical_power = JUMP_POWER_SECOND
+            vertical_power = self.jump_power_second
 
             # If jumping from wall, give some upward boost (wall surface exception)
             if on_wall:
-                vertical_power = JUMP_POWER * 0.85  # Slightly less than full jump
+                vertical_power = self.jump_power_first * 0.85  # Slightly less than full jump
 
             result = {
                 'vy': -vertical_power
@@ -106,7 +118,7 @@ class DoubleJump(Ability):
             # Boost horizontal velocity for aerial maneuverability
             if vx != 0:
                 # Boost existing horizontal movement
-                result['vx'] = vx * JUMP_HORIZONTAL_BOOST_SECOND
+                result['vx'] = vx * self.horizontal_boost_second
             else:
                 # If not moving horizontally, give small boost in facing direction
                 facing = player_state.get('facing', 1)
@@ -122,7 +134,7 @@ class DoubleJump(Ability):
 
         # Update coyote timer
         if on_ground:
-            self.coyote_timer = COYOTE_TIME
+            self.coyote_timer = self.coyote_time
             self.jumps_left = self.max_jumps  # Reset jumps on ground
             self.jumps_used = 0  # Reset jump counter
         else:
@@ -136,7 +148,7 @@ class DoubleJump(Ability):
 
     def request_jump(self):
         """Called when jump input is pressed to buffer the jump."""
-        self.jump_buffer_timer = JUMP_BUFFER_TIME
+        self.jump_buffer_timer = self.buffer_time
 
     def has_buffered_jump(self):
         """Check if a jump is buffered."""
@@ -181,14 +193,15 @@ class Dash(StaminaAbility):
     """
 
     def __init__(self):
+        # Load from config with fallback to settings.py
         super().__init__(
             "DASH",
-            max_stamina=DASH_STAMINA_MAX,
-            regen_rate=DASH_STAMINA_REGEN,
-            drain_rate=DASH_STAMINA_DRAIN
+            max_stamina=_config.get('movement', 'dash', 'stamina_max', DASH_STAMINA_MAX),
+            regen_rate=_config.get('movement', 'dash', 'stamina_regen', DASH_STAMINA_REGEN),
+            drain_rate=_config.get('movement', 'dash', 'stamina_drain', DASH_STAMINA_DRAIN)
         )
         self.is_active = False
-        self.speed_multiplier = DASH_SPEED_MULT
+        self.speed_multiplier = _config.get('movement', 'dash', 'speed_multiplier', DASH_SPEED_MULT)
 
     def can_use(self, player_state):
         """Can activate dash if we have stamina available."""
@@ -266,6 +279,10 @@ class WallJump(Ability):
     def __init__(self):
         super().__init__("WALL_JUMP")
         self.input_lock_timer = 0.0
+        # Load from config with fallback to settings.py
+        self.power_x = _config.get('movement', 'wall_jump', 'power_x', WALL_JUMP_POWER_X)
+        self.power_y = _config.get('movement', 'wall_jump', 'power_y', WALL_JUMP_POWER_Y)
+        self.input_lock_duration = _config.get('movement', 'wall_jump', 'input_lock_duration', WALL_JUMP_INPUT_LOCK)
 
     def can_use(self, player_state):
         """Can wall jump if on a wall and not on ground."""
@@ -284,12 +301,12 @@ class WallJump(Ability):
         jump_power = player_state.get('jump_power', JUMP_POWER)
 
         # Calculate jump velocities
-        vy = -WALL_JUMP_POWER_Y * (jump_power / JUMP_POWER)
-        vx = -wall_dir * WALL_JUMP_POWER_X
+        vy = -self.power_y * (jump_power / JUMP_POWER)
+        vx = -wall_dir * self.power_x
         new_facing = -wall_dir
 
         # Set input lock
-        self.input_lock_timer = WALL_JUMP_INPUT_LOCK
+        self.input_lock_timer = self.input_lock_duration
 
         return {
             'vy': vy,
@@ -334,13 +351,14 @@ class Slide(CooldownAbility):
     """
 
     def __init__(self):
-        super().__init__("SLIDE", SLIDE_COOLDOWN)
+        # Load from config with fallback to settings.py
+        super().__init__("SLIDE", _config.get('movement', 'slide', 'cooldown', SLIDE_COOLDOWN))
         self.is_active = False
         self.slide_timer = 0.0
         self.direction = 1
-        self.duration = SLIDE_DURATION
-        self.speed_mult = SLIDE_SPEED_MULT
-        self.min_speed = SLIDE_MIN_SPEED
+        self.duration = _config.get('movement', 'slide', 'duration', SLIDE_DURATION)
+        self.speed_mult = _config.get('movement', 'slide', 'speed_multiplier', SLIDE_SPEED_MULT)
+        self.min_speed = _config.get('movement', 'slide', 'min_speed', SLIDE_MIN_SPEED)
 
     def can_use(self, player_state):
         """Can slide if on ground, moving fast enough, and not on cooldown."""
