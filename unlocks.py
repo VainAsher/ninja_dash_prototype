@@ -47,6 +47,43 @@ ABILITY_ORB_COSTS: Dict[str, int] = {
     "STOMP_JUMP": 90,
 }
 
+# Ability prerequisites (ability -> required ability)
+# Represents upgrade paths (e.g., DOUBLE_DASH is an upgrade of DASH)
+ABILITY_PREREQUISITES: Dict[str, Optional[str]] = {
+    "DOUBLE_JUMP": None,  # Starter ability
+    "DASH": None,  # Starter ability
+    "WALL_JUMP": None,  # Starter ability
+    "SLIDE": "DASH",  # Requires dash first
+    "WALL_CLING": "WALL_JUMP",  # Enhanced wall interaction
+    "SHADOW_STEP": "DASH",  # Advanced dash variant
+    "AIR_DODGE": "DOUBLE_JUMP",  # Advanced air mobility
+    "GLIDE": "DOUBLE_JUMP",  # Advanced air mobility
+    "GRAPPLE": "WALL_JUMP",  # Advanced wall interaction
+    "GROUND_POUND": "DOUBLE_JUMP",  # Advanced air attack
+    "DOUBLE_DASH": "DASH",  # Upgrade: dash -> double dash
+    "TIME_SLOW": "SHADOW_STEP",  # Advanced evasion
+    "TELEPORT": "SHADOW_STEP",  # Ultimate mobility
+    "STOMP_JUMP": "GROUND_POUND",  # Ultimate air attack
+}
+
+# Ability categories for UI organization
+ABILITY_CATEGORIES: Dict[str, str] = {
+    "DOUBLE_JUMP": "movement",
+    "DASH": "movement",
+    "WALL_JUMP": "movement",
+    "SLIDE": "movement",
+    "WALL_CLING": "advanced",
+    "SHADOW_STEP": "advanced",
+    "AIR_DODGE": "advanced",
+    "GLIDE": "advanced",
+    "GRAPPLE": "utility",
+    "GROUND_POUND": "combat",
+    "DOUBLE_DASH": "movement",
+    "TIME_SLOW": "advanced",
+    "TELEPORT": "advanced",
+    "STOMP_JUMP": "combat",
+}
+
 ABILITY_INFO: Dict[str, Dict[str, Any]] = {
     "DOUBLE_JUMP": {
         "name": "Double Jump",
@@ -237,12 +274,18 @@ class UnlockManager:
         self.save()
 
     def _check_auto_unlocks(self) -> None:
-        """Automatically unlock abilities when orb threshold is reached."""
+        """Automatically unlock abilities when orb threshold is reached and prerequisites are met."""
         available_orbs = self._state.ability_orbs_total - self._state.ability_orbs_spent
 
         for ability_id in ABILITY_ORDER:
             # Skip if already unlocked
             if ability_id in self._state.unlocked:
+                continue
+
+            # Check prerequisites
+            prerequisite = ABILITY_PREREQUISITES.get(ability_id)
+            if prerequisite and prerequisite not in self._state.unlocked:
+                # Cannot unlock - missing prerequisite
                 continue
 
             # Check if we have enough orbs
@@ -253,7 +296,8 @@ class UnlockManager:
                 self._state.ability_orbs_spent += cost
                 available_orbs -= cost
 
-                print(f"🎉 Unlocked: {ABILITY_INFO[ability_id]['name']} (Cost: {cost} orbs)")
+                prereq_msg = f" (upgraded from {ABILITY_INFO[prerequisite]['name']})" if prerequisite else ""
+                print(f"🎉 Unlocked: {ABILITY_INFO[ability_id]['name']} (Cost: {cost} orbs){prereq_msg}")
 
     def get_ability_orbs_available(self) -> int:
         """Get number of unspent ability orbs."""
@@ -268,7 +312,7 @@ class UnlockManager:
         Get information about the next ability to unlock.
 
         Returns:
-            Dict with 'ability_id', 'name', 'cost', 'orbs_needed'
+            Dict with 'ability_id', 'name', 'cost', 'orbs_needed', 'prerequisite', 'can_unlock'
             or None if all abilities are unlocked
         """
         for ability_id in ABILITY_ORDER:
@@ -277,12 +321,20 @@ class UnlockManager:
                 available = self.get_ability_orbs_available()
                 orbs_needed = max(0, cost - available)
 
+                prerequisite = ABILITY_PREREQUISITES.get(ability_id)
+                prerequisite_met = prerequisite is None or prerequisite in self._state.unlocked
+                can_unlock = available >= cost and prerequisite_met
+
                 return {
                     'ability_id': ability_id,
                     'name': ABILITY_INFO[ability_id]['name'],
                     'cost': cost,
                     'orbs_needed': orbs_needed,
                     'progress': min(1.0, available / cost if cost > 0 else 1.0),
+                    'prerequisite': prerequisite,
+                    'prerequisite_met': prerequisite_met,
+                    'prerequisite_name': ABILITY_INFO[prerequisite]['name'] if prerequisite else None,
+                    'can_unlock': can_unlock,
                 }
 
         return None  # All unlocked
@@ -356,7 +408,7 @@ class UnlockManager:
         Get information about all abilities for UI display.
 
         Returns:
-            List of dicts with ability info and unlock status
+            List of dicts with ability info and unlock status, including prerequisites
         """
         result = []
         available_orbs = self.get_ability_orbs_available()
@@ -366,19 +418,62 @@ class UnlockManager:
             is_unlocked = ability_id in self._state.unlocked
             info = ABILITY_INFO.get(ability_id, {})
 
+            prerequisite = ABILITY_PREREQUISITES.get(ability_id)
+            prerequisite_met = prerequisite is None or prerequisite in self._state.unlocked
+            can_unlock = available_orbs >= cost and prerequisite_met
+
             result.append({
                 'ability_id': ability_id,
                 'name': info.get('name', ability_id),
                 'short': info.get('short', '??'),
                 'description': info.get('description', ''),
                 'color': info.get('color', (200, 200, 200)),
+                'category': ABILITY_CATEGORIES.get(ability_id, 'other'),
                 'cost': cost,
                 'unlocked': is_unlocked,
                 'can_afford': available_orbs >= cost,
+                'can_unlock': can_unlock,
+                'prerequisite': prerequisite,
+                'prerequisite_met': prerequisite_met,
+                'prerequisite_name': ABILITY_INFO[prerequisite]['name'] if prerequisite else None,
                 'progress': min(1.0, available_orbs / cost if cost > 0 else 1.0) if not is_unlocked else 1.0,
             })
 
         return result
+
+    def get_upgrade_tree(self) -> Dict[str, List[str]]:
+        """
+        Get the upgrade tree showing which abilities upgrade from others.
+
+        Returns:
+            Dict mapping base abilities to their upgrades
+        """
+        tree = {}
+        for ability_id, prerequisite in ABILITY_PREREQUISITES.items():
+            if prerequisite:
+                if prerequisite not in tree:
+                    tree[prerequisite] = []
+                tree[prerequisite].append(ability_id)
+        return tree
+
+    def get_ability_category(self, ability_id: str) -> str:
+        """Get the category of an ability."""
+        return ABILITY_CATEGORIES.get(ability_id, "other")
+
+    def get_abilities_by_category(self) -> Dict[str, List[str]]:
+        """
+        Get abilities organized by category.
+
+        Returns:
+            Dict mapping categories to lists of ability IDs
+        """
+        by_category = {}
+        for ability_id in ABILITY_ORDER:
+            category = ABILITY_CATEGORIES.get(ability_id, "other")
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append(ability_id)
+        return by_category
 
 
 # Global instance

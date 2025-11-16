@@ -64,6 +64,8 @@ class ShadowStep(ResourceAbility):
         self.cooldown_duration = _config.get('advanced', 'shadow_step', 'cooldown', SHADOW_STEP_COOLDOWN)
         self.phase_doors_only = _config.get('advanced', 'shadow_step', 'phase_doors_only', SHADOW_STEP_PHASE_DOORS_ONLY)
         self.invuln_time = _config.get('advanced', 'shadow_step', 'invuln_time', SHADOW_STEP_INVULN_TIME)
+        self.shadow_step_buffer_timer = 0.0
+        self.buffer_time = 0.15  # Buffer window in seconds
 
     def can_use(self, player_state):
         """Can use if we have charges and not on cooldown."""
@@ -96,10 +98,14 @@ class ShadowStep(ResourceAbility):
         }
 
     def update(self, dt, player_state):
-        """Update smoke timer, cooldown, and invulnerability."""
+        """Update smoke timer, cooldown, invulnerability, and buffer."""
         # Update cooldown
         if self.cooldown_timer > 0:
             self.cooldown_timer = max(0.0, self.cooldown_timer - dt)
+
+        # Update shadow step buffer
+        if self.shadow_step_buffer_timer > 0:
+            self.shadow_step_buffer_timer = max(0.0, self.shadow_step_buffer_timer - dt)
 
         # Update smoke bomb
         if self.is_active:
@@ -132,6 +138,14 @@ class ShadowStep(ResourceAbility):
     def can_phase_through_doors(self):
         """Check if player can currently phase through doors."""
         return self.is_active
+
+    def request_shadow_step(self):
+        """Called when shadow step input is pressed to buffer the ability."""
+        self.shadow_step_buffer_timer = self.buffer_time
+
+    def has_buffered_shadow_step(self):
+        """Check if a shadow step is buffered."""
+        return self.shadow_step_buffer_timer > 0
 
     def reset(self):
         """Reset charges and timers."""
@@ -270,6 +284,8 @@ class AirDodge(CooldownAbility):
         self.speed = _config.get('advanced', 'air_dodge', 'speed', AIR_DODGE_SPEED)
         self.hang_gravity_mult = _config.get('advanced', 'air_dodge', 'hang_gravity_mult', AIR_DODGE_HANG_GRAVITY_MULT)
         self.invuln_time = _config.get('advanced', 'air_dodge', 'invuln_time', AIR_DODGE_INVULN_TIME)
+        self.air_dodge_buffer_timer = 0.0
+        self.buffer_time = 0.12  # Buffer window in seconds
 
     @property
     def is_active(self):
@@ -333,7 +349,7 @@ class AirDodge(CooldownAbility):
             self.direction = (facing, 0)
 
     def update(self, dt, player_state):
-        """Update hang time, dodge timer, cooldown, and invulnerability."""
+        """Update hang time, dodge timer, cooldown, invulnerability, and buffer."""
         on_ground = player_state.get('on_ground', False)
 
         # Reset uses on ground
@@ -342,6 +358,10 @@ class AirDodge(CooldownAbility):
 
         # Update cooldown
         self.update_cooldown(dt)
+
+        # Update air dodge buffer
+        if self.air_dodge_buffer_timer > 0:
+            self.air_dodge_buffer_timer = max(0.0, self.air_dodge_buffer_timer - dt)
 
         # Update hang time
         if self.is_hanging:
@@ -396,6 +416,14 @@ class AirDodge(CooldownAbility):
     def is_invulnerable(self):
         """Check if player is invulnerable from dodge."""
         return self.is_active or self.invuln_timer > 0
+
+    def request_air_dodge(self):
+        """Called when air dodge input is pressed to buffer the ability."""
+        self.air_dodge_buffer_timer = self.buffer_time
+
+    def has_buffered_air_dodge(self):
+        """Check if an air dodge is buffered."""
+        return self.air_dodge_buffer_timer > 0
 
     def reset(self):
         """Reset dodge state."""

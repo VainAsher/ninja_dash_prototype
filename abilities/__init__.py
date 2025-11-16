@@ -6,6 +6,16 @@ Abilities are self-contained systems with their own state, update logic, and act
 """
 
 from abc import ABC, abstractmethod
+from typing import Optional
+
+# Lazy import to avoid circular dependencies
+def _get_modifier_manager():
+    """Lazy import of modifier manager to avoid circular dependencies."""
+    try:
+        from abilities.modifiers import get_modifier_manager
+        return get_modifier_manager()
+    except ImportError:
+        return None
 
 
 class Ability(ABC):
@@ -153,6 +163,7 @@ class ResourceAbility(Ability):
 class CooldownAbility(Ability):
     """
     Base class for abilities with cooldown timers.
+    Supports cooldown modifiers from the modifier system.
     """
 
     def __init__(self, name, cooldown_duration):
@@ -161,14 +172,34 @@ class CooldownAbility(Ability):
 
         Args:
             name: Ability name
-            cooldown_duration: Cooldown time in seconds
+            cooldown_duration: Base cooldown time in seconds (before modifiers)
         """
         super().__init__(name)
+        self.base_cooldown_duration = cooldown_duration
         self.cooldown_duration = cooldown_duration
         self.cooldown_timer = 0.0
 
+    def get_modified_cooldown(self) -> float:
+        """
+        Get cooldown duration with modifiers applied.
+
+        Returns:
+            Modified cooldown duration
+        """
+        mgr = _get_modifier_manager()
+        if mgr is None:
+            return self.base_cooldown_duration
+
+        from abilities.modifiers import ModifierType
+        return mgr.apply_modifiers(
+            self.base_cooldown_duration,
+            ModifierType.COOLDOWN,
+            self.name
+        )
+
     def start_cooldown(self):
-        """Start the cooldown timer."""
+        """Start the cooldown timer with modifiers applied."""
+        self.cooldown_duration = self.get_modified_cooldown()
         self.cooldown_timer = self.cooldown_duration
 
     def update_cooldown(self, dt):
@@ -194,12 +225,20 @@ class CooldownAbility(Ability):
         """Include cooldown information in debug output."""
         info = super().get_debug_info()
         info["cooldown"] = f"{self.cooldown_timer:.2f}s" if self.is_on_cooldown() else "ready"
+
+        # Show modifier effect if present
+        modified_cd = self.get_modified_cooldown()
+        if abs(modified_cd - self.base_cooldown_duration) > 0.01:
+            reduction_pct = 100 * (1 - modified_cd / self.base_cooldown_duration)
+            info["cooldown_mod"] = f"{reduction_pct:+.0f}%"
+
         return info
 
 
 class StaminaAbility(ResourceAbility):
     """
     Base class for abilities that use stamina with automatic regeneration.
+    Supports stamina cost modifiers from the modifier system.
     """
 
     def __init__(self, name, max_stamina, regen_rate, drain_rate=0):
@@ -210,24 +249,63 @@ class StaminaAbility(ResourceAbility):
             name: Ability name
             max_stamina: Maximum stamina amount
             regen_rate: Stamina regeneration per second when not in use
-            drain_rate: Stamina drain per second when active (0 for instant consumption)
+            drain_rate: Base stamina drain per second when active (0 for instant consumption)
         """
         super().__init__(name, max_stamina, "stamina")
+        self.base_regen_rate = regen_rate
+        self.base_drain_rate = drain_rate
         self.regen_rate = regen_rate
         self.drain_rate = drain_rate
 
+    def get_modified_drain_rate(self) -> float:
+        """
+        Get drain rate with modifiers applied.
+
+        Returns:
+            Modified drain rate
+        """
+        mgr = _get_modifier_manager()
+        if mgr is None:
+            return self.base_drain_rate
+
+        from abilities.modifiers import ModifierType
+        return mgr.apply_modifiers(
+            self.base_drain_rate,
+            ModifierType.STAMINA_COST,
+            self.name
+        )
+
+    def get_modified_regen_rate(self) -> float:
+        """
+        Get regen rate with modifiers applied.
+
+        Returns:
+            Modified regen rate
+        """
+        mgr = _get_modifier_manager()
+        if mgr is None:
+            return self.base_regen_rate
+
+        from abilities.modifiers import ModifierType
+        return mgr.apply_modifiers(
+            self.base_regen_rate,
+            ModifierType.CHARGE_REGEN,
+            self.name
+        )
+
     def regenerate_stamina(self, dt):
         """
-        Regenerate stamina over time.
+        Regenerate stamina over time with modifiers applied.
 
         Args:
             dt: Delta time since last frame
         """
+        self.regen_rate = self.get_modified_regen_rate()
         self.restore_resource(self.regen_rate * dt)
 
     def drain_stamina(self, dt):
         """
-        Drain stamina over time while active.
+        Drain stamina over time while active with modifiers applied.
 
         Args:
             dt: Delta time since last frame
@@ -235,15 +313,23 @@ class StaminaAbility(ResourceAbility):
         Returns:
             bool: True if stamina was drained, False if depleted
         """
+        self.drain_rate = self.get_modified_drain_rate()
         drain_amount = self.drain_rate * dt
         return self.consume_resource(drain_amount)
 
     def get_debug_info(self):
         """Include stamina regen info in debug output."""
         info = super().get_debug_info()
-        info["regen_rate"] = f"{self.regen_rate}/s"
+        info["regen_rate"] = f"{self.regen_rate:.2f}/s"
         if self.drain_rate > 0:
-            info["drain_rate"] = f"{self.drain_rate}/s"
+            info["drain_rate"] = f"{self.drain_rate:.2f}/s"
+
+            # Show modifier effect if present
+            modified_drain = self.get_modified_drain_rate()
+            if abs(modified_drain - self.base_drain_rate) > 0.01:
+                reduction_pct = 100 * (1 - modified_drain / self.base_drain_rate)
+                info["cost_mod"] = f"{reduction_pct:+.0f}%"
+
         return info
 
 
