@@ -26,6 +26,20 @@ from abilities.advanced import ShadowStep, WallCling, AirDodge, Glide
 from abilities.combat import SwordAttack, GrappleHook
 from powerups import PowerupManager
 
+# Import physics and state management
+from physics.player_collider import PlayerCollider
+
+# Import combo system
+from abilities.combos import ComboTracker
+
+# Import animation events (for future animation system)
+from abilities.animation_events import (
+    emit_ability_start,
+    emit_ability_end,
+    emit_impact,
+    emit_particle_burst
+)
+
 
 class Player:
     """
@@ -64,6 +78,12 @@ class Player:
         self.user_max_speed = None
         self.user_gravity = None
         self.user_jump_power = None
+
+        # === PHYSICS & COLLISION ===
+        self.collider = PlayerCollider()
+
+        # === COMBO SYSTEM ===
+        self.combo_tracker = ComboTracker()
 
         # === ABILITY SYSTEM ===
         # Movement abilities
@@ -164,8 +184,11 @@ class Player:
         self._update_timers(dt)
         self.powerup_manager.update(dt)
 
-        # Update all abilities
-        self._update_abilities(dt)
+        # Update combo tracker
+        combo_effects = self.combo_tracker.update(dt)
+
+        # Update all abilities (with combo effects applied)
+        self._update_abilities(dt, combo_effects)
 
         # Handle input
         self._handle_input(keys, tiles)
@@ -260,8 +283,11 @@ class Player:
         if self.inv_timer > 0.0:
             self.inv_timer = max(0.0, self.inv_timer - dt)
 
-    def _update_abilities(self, dt):
-        """Update all ability states."""
+    def _update_abilities(self, dt, combo_effects=None):
+        """Update all ability states with combo effects applied."""
+        if combo_effects is None:
+            combo_effects = {}
+
         # Build player state for abilities
         player_state = self._get_player_state()
 
@@ -440,6 +466,9 @@ class Player:
             if ability.enabled and ability.can_use(player_state):
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("SHADOW_STEP")
+                emit_ability_start("SHADOW_STEP")
         self._shadow_step_held = shadow_step_pressed
 
         # Dash (Shift) - NEW: Hold to activate, release to deactivate
@@ -449,8 +478,13 @@ class Player:
             if dash_pressed:
                 # Holding dash - activate or maintain
                 if ability.can_use(player_state):
+                    was_active = ability.is_active
                     modifications = ability.use(player_state, input_state)
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking (only on first activation)
+                    if not was_active and ability.is_active:
+                        self.combo_tracker.record_ability_use("DASH")
+                        emit_ability_start("DASH")
             else:
                 # Released dash - deactivate
                 if self._dash_held:  # Was holding, now released
@@ -465,13 +499,21 @@ class Player:
             if ability.enabled and ability.can_use(player_state):
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("SLIDE")
+                emit_ability_start("SLIDE")
         self._slide_key_held = slide_key
 
         # Wall Cling (hold toward wall)
         ability = self.abilities['wall_cling']
         if ability.enabled:
+            was_active = ability.is_active
             modifications = ability.use(player_state, input_state)
             self._apply_ability_modifications(modifications)
+            # Record for combo tracking (only on first activation)
+            if not was_active and ability.is_active:
+                self.combo_tracker.record_ability_use("WALL_CLING")
+                emit_ability_start("WALL_CLING")
 
         # Air Dodge (X key) - NEW: Hang time support
         air_dodge_key = keys[pygame.K_x]
@@ -485,6 +527,9 @@ class Player:
                 input_state['dodge_y'] = dodge_y
                 modifications = ability.use(player_state, input_state)
                 self._apply_ability_modifications(modifications)
+                # Record for combo tracking
+                self.combo_tracker.record_ability_use("AIR_DODGE")
+                emit_ability_start("AIR_DODGE")
 
         # NEW: Update direction during hang time
         if ability.enabled and hasattr(ability, 'is_hanging') and ability.is_hanging:
@@ -499,9 +544,14 @@ class Player:
         # Glide (hold jump while falling)
         ability = self.abilities['glide']
         if ability.enabled:
+            was_active = ability.is_active
             input_state['jump_held'] = jump_down
             modifications = ability.use(player_state, input_state)
             self._apply_ability_modifications(modifications)
+            # Record for combo tracking (only on first activation)
+            if not was_active and ability.is_active:
+                self.combo_tracker.record_ability_use("GLIDE")
+                emit_ability_start("GLIDE")
 
         # === HORIZONTAL MOVEMENT ===
         # Only apply manual movement if no ability is controlling velocity
@@ -571,6 +621,7 @@ class Player:
                 modifications = double_jump.use(player_state, input_state)
                 if modifications:
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking (ground jump doesn't combo, only air jumps)
                     return
 
             # Try wall jump
@@ -583,6 +634,10 @@ class Player:
                         # Reset jump count after wall jump
                         double_jump.jumps_left = double_jump.max_jumps - 1
                         double_jump.jump_buffer_timer = 0.0
+                        # Record for combo tracking
+                        self.combo_tracker.record_ability_use("WALL_JUMP")
+                        emit_ability_start("WALL_JUMP")
+                        emit_impact("WALL_JUMP")
                         return
 
             # Try double jump
@@ -590,6 +645,10 @@ class Player:
                 modifications = double_jump.use(player_state, input_state)
                 if modifications:
                     self._apply_ability_modifications(modifications)
+                    # Record for combo tracking
+                    self.combo_tracker.record_ability_use("DOUBLE_JUMP")
+                    emit_ability_start("DOUBLE_JUMP")
+                    emit_particle_burst("DOUBLE_JUMP")
 
                     # NEW: Consume extra jump powerup use if using extra jump
                     extra_jumps = self.powerup_manager.get_extra_jumps()
@@ -638,65 +697,17 @@ class Player:
         if phaseable_walls is None:
             phaseable_walls = []
 
-        # NEW: During smoke step, ignore phaseable walls (doors only)
-        collision_tiles = tiles
-        if self.is_smoke_stepping:
-            # Can phase through phaseable walls (doors/walls, not floors)
-            collision_tiles = [t for t in tiles if t not in phaseable_walls]
-
-        # CAP: Limit velocity during slide to prevent glitching through collisions
-        if self.is_sliding:
-            max_slide_speed = MAX_RUN_SPEED * 1.5  # Cap slide speed
-            if abs(self.vx) > max_slide_speed:
-                self.vx = max_slide_speed * (1 if self.vx > 0 else -1)
-
-        # Horizontal movement and collision
-        self.rect.x += int(round(self.vx))
-        self.on_wall = False
-        self.wall_dir = 0
-
-        for t in collision_tiles:
-            if self.rect.colliderect(t):
-                if self.vx > 0:
-                    self.rect.right = t.left
-                    self.on_wall = True
-                    self.wall_dir = 1
-                elif self.vx < 0:
-                    self.rect.left = t.right
-                    self.on_wall = True
-                    self.wall_dir = -1
-                self.vx = 0.0
-
-        # Vertical movement and collision
-        self.rect.y += int(round(self.vy))
-        self.on_ground = False
-
-        for t in collision_tiles:
-            if self.rect.colliderect(t):
-                if self.vy > 0:
-                    self.rect.bottom = t.top
-                    self.vy = 0.0
-                    self.on_ground = True
-                elif self.vy < 0:
-                    self.rect.top = t.bottom
-                    self.vy = 0.0
-
-        # World border checks - push player back into viewable area
-        from settings import WORLD_PX_W, WORLD_PX_H
-
-        if self.rect.left < 0:
-            self.rect.left = 0
-            self.vx = max(0, self.vx)  # Stop leftward movement
-        elif self.rect.right > WORLD_PX_W:
-            self.rect.right = WORLD_PX_W
-            self.vx = min(0, self.vx)  # Stop rightward movement
-
-        if self.rect.top < 0:
-            self.rect.top = 0
-            self.vy = max(0, self.vy)  # Stop upward movement
-        elif self.rect.bottom > WORLD_PX_H:
-            self.rect.bottom = WORLD_PX_H
-            self.vy = min(0, self.vy)  # Stop downward movement
+        # Use the PlayerCollider to handle all collision logic
+        self.vx, self.vy, self.on_ground, self.on_wall, self.wall_dir = \
+            self.collider.move_and_collide(
+                self.rect,
+                self.vx,
+                self.vy,
+                tiles,
+                phaseable_walls,
+                self.is_smoke_stepping,
+                self.is_sliding
+            )
 
     def _enter_crouch(self):
         """Enter crouch state."""
@@ -713,12 +724,10 @@ class Player:
         if not self.crouching:
             return
 
-        diff = self.normal_height - self.crouch_height
-        test_rect = pygame.Rect(self.rect.x, self.rect.y - diff,
-                                self.width, self.normal_height)
-
-        if not any(test_rect.colliderect(t) for t in tiles):
-            self.rect = test_rect
+        if self.collider.check_can_uncrouch(self.rect, self.width, self.normal_height, tiles):
+            diff = self.normal_height - self.crouch_height
+            self.rect.y -= diff
+            self.rect.height = self.normal_height
             self.crouching = False
 
     # ===== BACKWARD COMPATIBILITY PROPERTIES =====
