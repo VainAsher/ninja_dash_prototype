@@ -48,6 +48,7 @@ from user_settings import get_user_settings
 from entities.exit_gate import ExitGate
 from entities.collectibles import Coin, HealthPickup, LifePickup, Powerup
 from entities.ability_orb import AbilityOrb
+from entities.enemy_manager import EnemyManager
 from core.combat_system import DamageNumberManager
 from entities.player_entity import PlayerController
 
@@ -428,6 +429,7 @@ class Game:
 
         # Combat system
         self.damage_numbers = DamageNumberManager()
+        self.enemy_manager = EnemyManager()
 
         # Meta systems
         self.user_settings = get_user_settings()
@@ -504,6 +506,7 @@ class Game:
             powerup_defs,
             phaseable_walls,
             ability_orb_rects,
+            enemy_positions,
         ) = generate_level(
             seed=self.seed,
             diff_cfg=cfg,
@@ -536,6 +539,14 @@ class Game:
 
         # Ability Orbs (rare collectibles for unlocking abilities)
         self.ability_orbs = [AbilityOrb(r) for r in ability_orb_rects]
+
+        # Clear enemies for new level
+        self.enemy_manager.clear()
+
+        # Spawn enemies at generated positions
+        from entities.patroller import Patroller
+        for ex, ey in enemy_positions:
+            self.enemy_manager.spawn_enemy(Patroller, ex, ey)
 
         # Exit gate entity (coin-gated)
         coin_total = len(self.coins)
@@ -637,6 +648,9 @@ class Game:
         # Render Ability Orbs (with animations)
         for orb in self.ability_orbs:
             orb.draw(self.play_area, cam)
+
+        # Render enemies
+        self.enemy_manager.draw(self.play_area, (cam.x, cam.y))
 
         # Player with proper colours
         player_color = COLOR_PLAYER

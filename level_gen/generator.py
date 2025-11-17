@@ -49,6 +49,7 @@ from .entity_placer import (
     generate_coins_and_pickups,
     generate_powerups,
     generate_ability_orbs,
+    EntityPlacer,
 )
 from .structures import Room
 from .utils import pixel_to_tile, is_on_boundary
@@ -505,7 +506,8 @@ def generate_level(
     List[pygame.Rect],
     List[Dict[str, Any]],
     List[pygame.Rect],
-    List[pygame.Rect]
+    List[pygame.Rect],
+    List[Tuple[int, int]]
 ]:
     """
     Generate a complete level with ability-aware features.
@@ -517,7 +519,7 @@ def generate_level(
         config: Type-safe LevelGenConfig instance (recommended over diff_cfg)
 
     Returns:
-        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs)
+        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions)
         - world: 2D tile array
         - tiles: List of solid tile rectangles
         - exit_rect: Exit rectangle
@@ -529,6 +531,7 @@ def generate_level(
         - powerups: List of powerup dictionaries with 'rect' and 'type' keys
         - phaseable_walls: List of phaseable wall rectangles (for Shadow Step)
         - ability_orbs: List of ability orb rectangles
+        - enemy_positions: List of enemy spawn positions (x, y) in pixels
 
     Example:
         >>> # Using new config parameter (recommended)
@@ -621,4 +624,9 @@ def generate_level(
 
     spawn = find_spawn(path)
 
-    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs
+    # Generate enemies (avoid player spawn area)
+    enemy_density = cfg.enemy_density if hasattr(cfg, 'enemy_density') else 0.10
+    entity_placer = EntityPlacer(world, rng)
+    enemy_positions = entity_placer.generate_enemies(enemy_density, spawn)
+
+    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions

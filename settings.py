@@ -55,6 +55,7 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 2,
         "powerup_density": 0.004,
         "phaseable_wall_chance": 0.25,
+        "enemy_density": 0.05,  # 5% spawn rate
     },
     "medium": {
         "coin_ratio": 0.60, "multiplier": 1.5,
@@ -66,6 +67,7 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.003,
         "phaseable_wall_chance": 0.20,
+        "enemy_density": 0.10,  # 10% spawn rate
     },
     "hard": {
         "coin_ratio": 0.75, "multiplier": 2.0,
@@ -77,6 +79,7 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.0025,
         "phaseable_wall_chance": 0.15,
+        "enemy_density": 0.15,  # 15% spawn rate
     },
     "expert": {
         "coin_ratio": 0.85, "multiplier": 3.0,
@@ -88,6 +91,7 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.004,
         "phaseable_wall_chance": 0.12,
+        "enemy_density": 0.20,  # 20% spawn rate
     },
 }
 
