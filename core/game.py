@@ -62,6 +62,7 @@ from states.help_state import HelpState
 from states.name_entry import NameEntryState
 from states.seed_entry import SeedEntryState
 from states.controls_viewer import ControlsViewerState
+from states.options_state import OptionsState
 
 from ui.hud_components import (
     ScoreSection,
@@ -73,6 +74,9 @@ from ui.hud_components import (
     AbilityResourceBars,
     ExitGateIndicator
 )
+from ui.debug_overlay import DebugOverlay
+
+from gameplay_modifiers import get_modifiers
 
 
 def create_window() -> pygame.Surface:
@@ -428,6 +432,10 @@ class Game:
         self.unlock_mgr = get_unlock_manager()
         self._sync_features_with_unlocks()
 
+        # Gameplay modifiers and debug overlay
+        self.modifiers = get_modifiers()
+        self.debug_overlay = DebugOverlay()
+
         # State machine
         self.states: Dict[str, GameState] = {}
         self.current_state: GameState | None = None
@@ -448,6 +456,7 @@ class Game:
             "highscores": HighscoresState(self),
             "unlocks": UnlocksState(self),
             "settings": SettingsState(self),
+            "options": OptionsState(self),
             "help": HelpState(self),
             "name_entry": NameEntryState(self),
             "seed_entry": SeedEntryState(self),
@@ -634,6 +643,95 @@ class Game:
             self.player.rect.move(-cam.x, -cam.y),
             border_radius=4,
         )
+
+        # Draw hitboxes if enabled
+        if self.modifiers.show_hitboxes:
+            # Player hitbox (bright green)
+            pygame.draw.rect(
+                self.play_area,
+                (0, 255, 0),
+                self.player.rect.move(-cam.x, -cam.y),
+                2,
+            )
+
+            # Tile hitboxes (white)
+            for t in self.tiles:
+                if cam.colliderect(t):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (255, 255, 255),
+                        (t.x - cam.x, t.y - cam.y, t.w, t.h),
+                        1,
+                    )
+
+            # Phaseable wall hitboxes (purple)
+            for pw in self.phaseable_walls:
+                if cam.colliderect(pw):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (255, 0, 255),
+                        (pw.x - cam.x, pw.y - cam.y, pw.w, pw.h),
+                        2,
+                    )
+
+            # Hazard hitboxes (red)
+            for h in self.hazards:
+                if cam.colliderect(h):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (255, 0, 0),
+                        (h.x - cam.x, h.y - cam.y, h.w, h.h),
+                        2,
+                    )
+
+            # Coin hitboxes (yellow)
+            for coin in self.coins:
+                if cam.colliderect(coin.rect):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (255, 255, 0),
+                        (coin.rect.x - cam.x, coin.rect.y - cam.y, coin.rect.w, coin.rect.h),
+                        1,
+                    )
+
+            # Pickup hitboxes (cyan)
+            for hp in self.health_pickups:
+                if cam.colliderect(hp.rect):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (0, 255, 255),
+                        (hp.rect.x - cam.x, hp.rect.y - cam.y, hp.rect.w, hp.rect.h),
+                        1,
+                    )
+
+            for life in self.life_pickups:
+                if cam.colliderect(life.rect):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (0, 255, 255),
+                        (life.rect.x - cam.x, life.rect.y - cam.y, life.rect.w, life.rect.h),
+                        1,
+                    )
+
+            # Powerup hitboxes (magenta)
+            for pup in self.powerups:
+                if cam.colliderect(pup.rect):
+                    pygame.draw.rect(
+                        self.play_area,
+                        (255, 0, 200),
+                        (pup.rect.x - cam.x, pup.rect.y - cam.y, pup.rect.w, pup.rect.h),
+                        1,
+                    )
+
+            # Exit gate hitbox (bright cyan)
+            if self.exit_gate and self.exit_gate.rect and cam.colliderect(self.exit_gate.rect):
+                pygame.draw.rect(
+                    self.play_area,
+                    (0, 255, 255),
+                    (self.exit_gate.rect.x - cam.x, self.exit_gate.rect.y - cam.y,
+                     self.exit_gate.rect.w, self.exit_gate.rect.h),
+                    2,
+                )
 
         # Draw new modular HUD at the top
         draw_hud_new(

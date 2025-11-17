@@ -25,6 +25,7 @@ class MenuState(GameState):
         add("🎲 Custom Seed Run", lambda: self.game.change_state("seed_entry"))
         add("🏆 High Scores", lambda: self.game.change_state("highscores"))
         add("⭐ Unlocks", lambda: self.game.change_state("unlocks"))
+        add("⚙ Options", lambda: self.game.change_state("options"))
         add("⚙ Settings", lambda: self.game.change_state("settings"))
         add("❓ Help", lambda: self.game.change_state("help"))
         add("✕ Quit", self.game.quit)
