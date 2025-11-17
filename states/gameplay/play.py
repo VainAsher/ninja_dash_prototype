@@ -92,6 +92,10 @@ class PlayState(GameState):
             # Coin magnet logic still uses the underlying coin rects via entities
             player.apply_magnet_to_coins([c.rect for c in self.game.coins], dt)
 
+        # Update damage numbers
+        if hasattr(self.game, 'damage_numbers'):
+            self.game.damage_numbers.update(dt)
+
         cfg = DIFFICULTY_CONFIG[self.game.difficulty]
         multiplier = cfg.get("multiplier", 1.0)
         coin_value = int(10 * multiplier)  # kept for future scaling if needed

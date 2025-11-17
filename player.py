@@ -195,7 +195,7 @@ class Player:
         self._update_abilities(dt, combo_effects)
 
         # Handle input
-        self._handle_input(keys, tiles)
+        self._handle_input(keys, tiles, dt)
 
         # Apply gravity
         self._apply_gravity(keys)
@@ -250,6 +250,37 @@ class Player:
         if self.abilities['air_dodge'].is_invulnerable():
             return True
         return False
+
+    def get_attack_hitbox(self):
+        """
+        Get the attack hitbox for sword attack based on facing direction.
+
+        Returns:
+            pygame.Rect: Attack hitbox rectangle, or None if not attacking
+        """
+        if not self.is_attacking:
+            return None
+
+        sword_ability = self.abilities['sword_attack']
+        attack_range = sword_ability.range
+
+        # Create hitbox based on facing direction
+        if self.facing > 0:  # Facing right
+            attack_rect = pygame.Rect(
+                self.rect.right,
+                self.rect.y,
+                attack_range,
+                self.rect.height
+            )
+        else:  # Facing left
+            attack_rect = pygame.Rect(
+                self.rect.left - attack_range,
+                self.rect.y,
+                attack_range,
+                self.rect.height
+            )
+
+        return attack_rect
 
     def reset_shadow_step_charges(self):
         """Reset Shadow Step charges for new level."""
@@ -398,7 +429,7 @@ class Player:
             if modifications['crouching'] and not self.crouching:
                 self._enter_crouch()
 
-    def _handle_input(self, keys, tiles):
+    def _handle_input(self, keys, tiles, dt):
         """Process player input and trigger abilities."""
         # Get input state - Arrow keys only for movement
         left = keys[pygame.K_LEFT]
@@ -532,6 +563,39 @@ class Player:
             if not was_active and ability.is_active:
                 self.combo_tracker.record_ability_use("GLIDE")
                 emit_ability_start("GLIDE")
+
+        # Sword Attack (J key) - Tap to attack, hold to block
+        sword_key = keys[pygame.K_j]
+        sword_ability = self.abilities['sword_attack']
+        if sword_ability.enabled:
+            if sword_key and not self._sword_key_held:
+                # Just pressed - start tracking
+                if sword_ability.can_use(player_state):
+                    sword_ability.on_input_pressed()
+
+            if sword_key:
+                # Still holding - update hold timer
+                modifications = sword_ability.on_input_held(dt, player_state)
+                if modifications:
+                    self._apply_ability_modifications(modifications)
+                    # Emit block start event if just activated
+                    if modifications.get('is_blocking') and not self.is_blocking:
+                        emit_ability_start("SWORD_BLOCK")
+            elif self._sword_key_held:
+                # Just released - execute attack or end block
+                modifications = sword_ability.on_input_released(player_state)
+                if modifications:
+                    self._apply_ability_modifications(modifications)
+                    # Check if attack was triggered
+                    if modifications.get('is_attacking'):
+                        self.combo_tracker.record_ability_use("SWORD_ATTACK")
+                        emit_ability_start("SWORD_ATTACK")
+                        emit_impact("SWORD_ATTACK")
+                    # Check if block ended
+                    if not modifications.get('is_blocking') and self.is_blocking:
+                        emit_ability_end("SWORD_BLOCK")
+
+        self._sword_key_held = sword_key
 
         # === HORIZONTAL MOVEMENT ===
         # Only apply manual movement if no ability is controlling velocity
