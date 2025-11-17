@@ -254,12 +254,15 @@ class UnlockManager:
         except OSError:
             pass
 
-    def add_ability_orb(self, count: int = 1) -> None:
+    def add_ability_orb(self, count: int = 1) -> List[str]:
         """
         Add collected ability orb(s) and check for auto-unlocks.
 
         Args:
             count: Number of orbs to add (default 1)
+
+        Returns:
+            List of ability IDs that were unlocked
         """
         self._state.ability_orbs_total += count
 
@@ -269,12 +272,20 @@ class UnlockManager:
             self._state.orb_collection_history.append(timestamp)
 
         # Check if we can auto-unlock any abilities
-        self._check_auto_unlocks()
+        newly_unlocked = self._check_auto_unlocks()
 
         self.save()
 
-    def _check_auto_unlocks(self) -> None:
-        """Automatically unlock abilities when orb threshold is reached and prerequisites are met."""
+        return newly_unlocked
+
+    def _check_auto_unlocks(self) -> List[str]:
+        """
+        Automatically unlock abilities when orb threshold is reached and prerequisites are met.
+
+        Returns:
+            List of ability IDs that were newly unlocked
+        """
+        newly_unlocked = []
         available_orbs = self._state.ability_orbs_total - self._state.ability_orbs_spent
 
         for ability_id in ABILITY_ORDER:
@@ -295,9 +306,12 @@ class UnlockManager:
                 self._state.unlocked.add(ability_id)
                 self._state.ability_orbs_spent += cost
                 available_orbs -= cost
+                newly_unlocked.append(ability_id)
 
                 prereq_msg = f" (upgraded from {ABILITY_INFO[prerequisite]['name']})" if prerequisite else ""
                 print(f"🎉 Unlocked: {ABILITY_INFO[ability_id]['name']} (Cost: {cost} orbs){prereq_msg}")
+
+        return newly_unlocked
 
     def get_ability_orbs_available(self) -> int:
         """Get number of unspent ability orbs."""

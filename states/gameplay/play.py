@@ -10,6 +10,13 @@ from .base import GameState
 
 
 class PlayState(GameState):
+    def __init__(self, game) -> None:
+        super().__init__(game)
+        self.notification_timer = 0.0
+        self.notification_text = ""
+        self.unlock_notification_timer = 0.0
+        self.unlock_notification_text = ""
+
     def handle_event(self, event: pygame.event.EventType) -> None:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -43,6 +50,26 @@ class PlayState(GameState):
 
         # Advance run timer
         self.game.game_time += dt
+
+        # Update notification timers
+        if self.notification_timer > 0:
+            self.notification_timer -= dt
+        if self.unlock_notification_timer > 0:
+            self.unlock_notification_timer -= dt
+
+        # Check for ability orb collection notification
+        if hasattr(self.game, 'ability_orb_collected') and self.game.ability_orb_collected:
+            self.notification_text = "Ability Orb +1!"
+            self.notification_timer = 2.0
+            self.game.ability_orb_collected = False
+
+        # Check for ability unlock notification
+        if hasattr(self.game, 'ability_unlocked') and self.game.ability_unlocked:
+            from unlocks import ABILITY_INFO
+            ability_name = ABILITY_INFO.get(self.game.ability_unlocked, {}).get('name', self.game.ability_unlocked)
+            self.unlock_notification_text = f"New Ability Unlocked: {ability_name}!"
+            self.unlock_notification_timer = 3.0
+            self.game.ability_unlocked = None
 
         # Get modifiers if available
         modifiers = getattr(self.game, 'modifiers', None)
@@ -124,3 +151,55 @@ class PlayState(GameState):
             modifiers = getattr(self.game, 'modifiers', None)
             seed = getattr(self.game, 'seed', None)
             self.game.debug_overlay.render(surface, self.game.player, modifiers, seed)
+
+        # Draw notifications
+        self._draw_notifications(surface)
+
+    def _draw_notifications(self, surface: pygame.Surface) -> None:
+        """Draw collection and unlock notifications."""
+        from settings import LOGICAL_W, LOGICAL_H, FONT_BIG, FONT
+
+        y_offset = 200  # Below the HUD
+
+        # Draw ability orb collection notification
+        if self.notification_timer > 0:
+            # Fade in/out effect
+            alpha = min(255, int(255 * min(self.notification_timer, 1.0)))
+            color = (200, 150, 255, alpha)  # Purple like orbs
+
+            text = FONT_BIG.render(self.notification_text, True, color[:3])
+            text_rect = text.get_rect(center=(LOGICAL_W // 2, y_offset))
+
+            # Draw background for better visibility
+            bg_rect = text_rect.inflate(40, 20)
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            bg_surface.fill((0, 0, 0, min(180, alpha)))
+            surface.blit(bg_surface, bg_rect.topleft)
+
+            # Draw text
+            surface.blit(text, text_rect)
+
+        # Draw ability unlock notification (below orb notification)
+        if self.unlock_notification_timer > 0:
+            y_offset += 80
+
+            # Fade in/out effect
+            alpha = min(255, int(255 * min(self.unlock_notification_timer, 1.0)))
+            color = (255, 220, 100, alpha)  # Gold for unlocks
+
+            text = FONT_BIG.render(self.unlock_notification_text, True, color[:3])
+            text_rect = text.get_rect(center=(LOGICAL_W // 2, y_offset))
+
+            # Draw background for better visibility
+            bg_rect = text_rect.inflate(40, 20)
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            bg_surface.fill((0, 0, 0, min(180, alpha)))
+            surface.blit(bg_surface, bg_rect.topleft)
+
+            # Draw text
+            surface.blit(text, text_rect)
+
+            # Draw smaller subtitle
+            subtitle = FONT.render("Check your abilities!", True, (220, 220, 220))
+            subtitle_rect = subtitle.get_rect(center=(LOGICAL_W // 2, y_offset + 35))
+            surface.blit(subtitle, subtitle_rect)
