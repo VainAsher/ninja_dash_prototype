@@ -571,7 +571,7 @@ class Player:
             if sword_key and not self._sword_key_held:
                 # Just pressed - start tracking
                 if sword_ability.can_use(player_state):
-                    sword_ability.on_input_pressed()
+                    sword_ability.on_input_pressed(player_state)
 
             if sword_key:
                 # Still holding - update hold timer
