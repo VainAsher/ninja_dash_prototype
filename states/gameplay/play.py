@@ -6,7 +6,7 @@ from __future__ import annotations
 import pygame
 
 from settings import DIFFICULTY_CONFIG
-from .base import GameState
+from ..base import GameState
 
 
 class PlayState(GameState):

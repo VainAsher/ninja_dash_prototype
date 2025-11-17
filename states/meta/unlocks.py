@@ -6,7 +6,7 @@ import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_BIG, FONT_SMALL
 from unlocks import ABILITY_ORDER, ABILITY_INFO
-from .base import GameState
+from ..base import GameState
 
 
 class UnlocksState(GameState):

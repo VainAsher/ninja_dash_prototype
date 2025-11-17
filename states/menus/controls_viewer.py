@@ -9,7 +9,7 @@ from typing import Optional
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, COLOR_BG, FONT, FONT_SMALL, FONT_BIG
 from controls import get_controls_manager
-from .base import GameState
+from ..base import GameState
 
 
 class ControlsViewerState(GameState):

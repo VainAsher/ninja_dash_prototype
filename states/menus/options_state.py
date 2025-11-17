@@ -12,7 +12,7 @@ All settings are saved to user preferences and persist between sessions.
 
 import pygame
 from typing import Dict, List, Tuple, Optional, Any
-from .base import GameState
+from ..base import GameState
 from gameplay_modifiers import get_modifiers
 
 

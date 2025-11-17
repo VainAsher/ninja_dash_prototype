@@ -5,7 +5,7 @@ import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT_BIG, FONT_SMALL
 from ui import Button
-from .base import GameState
+from ..base import GameState
 
 
 class HelpState(GameState):

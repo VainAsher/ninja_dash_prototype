@@ -7,7 +7,7 @@ import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_BIG
 from ui import Button
-from .base import GameState
+from ..base import GameState
 
 
 class MenuState(GameState):
