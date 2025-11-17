@@ -76,6 +76,10 @@ class Enemy:
         self.inv_timer = 0.0
         self.inv_duration = 0.5  # Half second between damage
 
+        # Knockback stun (prevents AI from overwriting knockback velocity)
+        self.knockback_timer = 0.0
+        self.knockback_duration = 0.2  # 200ms of stun after knockback
+
         # Death state
         self.is_dead = False
         self.death_timer = 0.0
@@ -99,6 +103,10 @@ class Enemy:
         if self.inv_timer > 0:
             self.inv_timer -= dt
 
+        # Update knockback timer
+        if self.knockback_timer > 0:
+            self.knockback_timer -= dt
+
         # Handle death state
         if self.is_dead:
             self.death_timer += dt
@@ -110,15 +118,16 @@ class Enemy:
         # Update state timer
         self.state_timer += dt
 
-        # AI state machine
-        if self.state == "idle":
-            self._update_idle(dt, world, player)
-        elif self.state == "patrol":
-            self._update_patrol(dt, world, player)
-        elif self.state == "chase":
-            self._update_chase(dt, world, player)
-        elif self.state == "attack":
-            self._update_attack(dt, world, player)
+        # AI state machine (skip if in knockback stun to preserve knockback velocity)
+        if self.knockback_timer <= 0:
+            if self.state == "idle":
+                self._update_idle(dt, world, player)
+            elif self.state == "patrol":
+                self._update_patrol(dt, world, player)
+            elif self.state == "chase":
+                self._update_chase(dt, world, player)
+            elif self.state == "attack":
+                self._update_attack(dt, world, player)
 
         # Apply physics
         self._apply_physics(dt, world)
@@ -385,6 +394,9 @@ class Enemy:
         # Apply damage
         self.hp -= amount
         self.inv_timer = self.inv_duration
+
+        # Apply knockback stun to prevent AI from immediately overwriting knockback velocity
+        self.knockback_timer = self.knockback_duration
 
         # Check death
         if self.hp <= 0:
