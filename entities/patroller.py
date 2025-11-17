@@ -66,7 +66,10 @@ class Patroller(Enemy):
         self.patrol_speed = speed
 
         # Edge detection parameters
-        self.edge_check_distance = TILE_SIZE // 2
+        # Check from the edge of the enemy rect, not center
+        # Enemy is TILE_SIZE wide, so check at least TILE_SIZE ahead to detect edges
+        # before the enemy's leading edge reaches them
+        self.edge_check_distance = TILE_SIZE
         self.wall_check_distance = 4
 
         # Start in patrol state
@@ -101,7 +104,9 @@ class Patroller(Enemy):
             self._turn_around()
 
         # Check for platform edge ahead
-        if self.on_ground and self._check_edge_ahead(world):
+        # Always check for edges, not just when on_ground
+        # This prevents walking off edges even if on_ground state is unreliable
+        if self._check_edge_ahead(world):
             self._turn_around()
 
         # Optional: Chase player if nearby
@@ -140,7 +145,8 @@ class Patroller(Enemy):
         if self._check_wall_ahead(world):
             self.vx = 0
 
-        if self.on_ground and self._check_edge_ahead(world):
+        # Always check for edges during chase, not just when on_ground
+        if self._check_edge_ahead(world):
             self.vx = 0
 
     def _check_wall_ahead(self, world: Any) -> bool:

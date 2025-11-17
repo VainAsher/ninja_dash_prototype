@@ -218,7 +218,7 @@ class Enemy:
         Args:
             world: Level tile data (2D list)
         """
-        # Reset ground state
+        # Reset ground state - will be set True if we find ground below
         self.on_ground = False
 
         # Get tiles near enemy
@@ -251,6 +251,46 @@ class Enemy:
                         # Resolve collision
                         self._resolve_tile_collision(tile_rect)
 
+        # After collision resolution, check if there's solid ground immediately below
+        # This provides a more reliable on_ground state
+        self._check_ground_below(world)
+
+    def _check_ground_below(self, world: Any) -> None:
+        """
+        Check if there's solid ground immediately below the enemy.
+        Provides a more reliable on_ground state than relying solely on collision resolution.
+
+        Args:
+            world: Level tile data (2D list)
+        """
+        if not world:
+            return
+
+        # Check a few pixels below the bottom of the enemy rect
+        check_y = self.rect.bottom + 2  # Check 2 pixels below feet
+
+        # Check at left edge, center, and right edge of enemy
+        check_points = [
+            self.rect.left + 4,      # Left edge (with small margin)
+            self.rect.centerx,        # Center
+            self.rect.right - 4       # Right edge (with small margin)
+        ]
+
+        for check_x in check_points:
+            tile_x = int(check_x // TILE_SIZE)
+            tile_y = int(check_y // TILE_SIZE)
+
+            # Bounds check
+            if tile_y < 0 or tile_y >= len(world):
+                continue
+            if tile_x < 0 or tile_x >= len(world[0]):
+                continue
+
+            # If any check point has solid ground below, enemy is on ground
+            if world[tile_y][tile_x] == 1:
+                self.on_ground = True
+                return
+
     def _resolve_tile_collision(self, tile_rect: pygame.Rect) -> None:
         """
         Resolve collision with a tile.
@@ -272,7 +312,7 @@ class Enemy:
             # Collision from above
             self.rect.bottom = tile_rect.top
             self.vy = 0
-            self.on_ground = True
+            # on_ground will be set by _check_ground_below()
         elif min_overlap == overlap_bottom and self.vy < 0:
             # Collision from below
             self.rect.top = tile_rect.bottom
