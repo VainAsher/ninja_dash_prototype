@@ -122,4 +122,5 @@ class PlayState(GameState):
         # Draw debug overlay if available
         if hasattr(self.game, 'debug_overlay') and self.game.player:
             modifiers = getattr(self.game, 'modifiers', None)
-            self.game.debug_overlay.render(surface, self.game.player, modifiers)
+            seed = getattr(self.game, 'seed', None)
+            self.game.debug_overlay.render(surface, self.game.player, modifiers, seed)

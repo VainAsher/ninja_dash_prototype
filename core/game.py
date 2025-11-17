@@ -485,6 +485,11 @@ class Game:
 
         self.abilities = get_enabled_abilities()
 
+        # Generate actual seed if not set (for display in debug overlay)
+        if self.seed is None:
+            import time
+            self.seed = int(time.time() * 1000) % 1000000  # Use timestamp-based seed
+
         (
             world,
             tiles,
@@ -561,6 +566,8 @@ class Game:
         unlocked_id = self.unlock_mgr.unlock_next()
         if unlocked_id:
             self._sync_features_with_unlocks()
+        # Reset seed to None so each level gets a new random seed
+        self.seed = None
         self.build_level()
         self.change_state("play")
 
