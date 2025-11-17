@@ -250,7 +250,7 @@ class EntityPlacer:
 
     def generate_enemies(
         self,
-        enemy_density: float = 0.10,
+        enemy_density: float = 0.05,
         spawn_pos: Optional[Tuple[int, int]] = None
     ) -> List[Tuple[int, int]]:
         """

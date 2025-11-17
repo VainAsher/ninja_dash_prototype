@@ -28,7 +28,7 @@ Technical Note:
 """
 
 # Pickup Spawning
-DEFAULT_COIN_DENSITY = 0.04
+DEFAULT_COIN_DENSITY = 0.02
 """Float: Density of coin spawns (0.0-1.0)
 
 Probability per valid location of spawning a coin.
