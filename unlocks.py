@@ -11,9 +11,12 @@ from save_paths import get_save_path
 
 UNLOCKS_FILE = "unlocks.json"
 
+# Default abilities that are always unlocked (starting abilities)
+DEFAULT_UNLOCKED_ABILITIES: Set[str] = {"DOUBLE_JUMP", "SWORD_ATTACK"}
+
 # Updated ability order with orb costs
+# Note: DOUBLE_JUMP is a default/starting ability and not in this progression list
 ABILITY_ORDER: List[str] = [
-    "DOUBLE_JUMP",
     "DASH",
     "WALL_JUMP",
     "SLIDE",
@@ -30,8 +33,8 @@ ABILITY_ORDER: List[str] = [
 ]
 
 # Orb cost for each ability
+# Note: DOUBLE_JUMP is a default/starting ability with no cost
 ABILITY_ORB_COSTS: Dict[str, int] = {
-    "DOUBLE_JUMP": 5,
     "DASH": 8,
     "WALL_JUMP": 12,
     "SLIDE": 15,
@@ -49,17 +52,17 @@ ABILITY_ORB_COSTS: Dict[str, int] = {
 
 # Ability prerequisites (ability -> required ability)
 # Represents upgrade paths (e.g., DOUBLE_DASH is an upgrade of DASH)
+# Note: DOUBLE_JUMP is a default/starting ability and not in prerequisites
 ABILITY_PREREQUISITES: Dict[str, Optional[str]] = {
-    "DOUBLE_JUMP": None,  # Starter ability
     "DASH": None,  # Starter ability
     "WALL_JUMP": None,  # Starter ability
     "SLIDE": "DASH",  # Requires dash first
     "WALL_CLING": "WALL_JUMP",  # Enhanced wall interaction
     "SHADOW_STEP": "DASH",  # Advanced dash variant
-    "AIR_DODGE": "DOUBLE_JUMP",  # Advanced air mobility
-    "GLIDE": "DOUBLE_JUMP",  # Advanced air mobility
+    "AIR_DODGE": None,  # Advanced air mobility (was DOUBLE_JUMP, now None since DOUBLE_JUMP is default)
+    "GLIDE": None,  # Advanced air mobility (was DOUBLE_JUMP, now None since DOUBLE_JUMP is default)
     "GRAPPLE": "WALL_JUMP",  # Advanced wall interaction
-    "GROUND_POUND": "DOUBLE_JUMP",  # Advanced air attack
+    "GROUND_POUND": None,  # Advanced air attack (was DOUBLE_JUMP, now None since DOUBLE_JUMP is default)
     "DOUBLE_DASH": "DASH",  # Upgrade: dash -> double dash
     "TIME_SLOW": "SHADOW_STEP",  # Advanced evasion
     "TELEPORT": "SHADOW_STEP",  # Ultimate mobility
@@ -201,7 +204,7 @@ class UnlockState:
     def from_jsonable(cls, data: Dict[str, Any]) -> "UnlockState":
         if not isinstance(data, dict):
             return cls(
-                unlocked=set(),
+                unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
                 orb_collection_history=[],
@@ -215,8 +218,12 @@ class UnlockState:
         if not isinstance(unlocked, list):
             unlocked = []
 
+        # Ensure default abilities are always included (for backwards compatibility with old saves)
+        unlocked_set = set(str(x) for x in unlocked)
+        unlocked_set.update(DEFAULT_UNLOCKED_ABILITIES)
+
         return cls(
-            unlocked=set(str(x) for x in unlocked),
+            unlocked=unlocked_set,
             ability_orbs_total=int(data.get("ability_orbs_total", 0)),
             ability_orbs_spent=int(data.get("ability_orbs_spent", 0)),
             orb_collection_history=data.get("orb_collection_history", []),
@@ -234,7 +241,7 @@ def _unlocks_path():
 class UnlockManager:
     def __init__(self) -> None:
         self._state = UnlockState(
-            unlocked=set(),
+            unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
             orb_collection_history=[],
@@ -250,7 +257,7 @@ class UnlockManager:
         p = _unlocks_path()
         if not p.exists():
             self._state = UnlockState(
-                unlocked=set(),
+                unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
                 orb_collection_history=[],
@@ -265,7 +272,7 @@ class UnlockManager:
                 raw = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._state = UnlockState(
-                unlocked=set(),
+                unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
                 orb_collection_history=[],
@@ -325,7 +332,7 @@ class UnlockManager:
                 pass
         # Reset to defaults
         self._state = UnlockState(
-            unlocked=set(),
+            unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
             orb_collection_history=[],
@@ -338,7 +345,7 @@ class UnlockManager:
     def reset_to_defaults(self) -> None:
         """Reset to default state (called on New Game)."""
         self._state = UnlockState(
-            unlocked=set(),
+            unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
             orb_collection_history=[],
@@ -502,12 +509,15 @@ class UnlockManager:
         return None
 
     def get_enabled_abilities(self) -> List[str]:
-        return [a for a in ABILITY_ORDER if a in self._state.unlocked]
+        # Include default abilities plus any unlocked progression abilities
+        enabled = list(DEFAULT_UNLOCKED_ABILITIES)
+        enabled.extend([a for a in ABILITY_ORDER if a in self._state.unlocked])
+        return enabled
 
     def reset(self) -> None:
         """Reset unlocks only (deprecated - use reset_to_defaults() or delete_save())."""
         self._state = UnlockState(
-            unlocked=set(),
+            unlocked=DEFAULT_UNLOCKED_ABILITIES.copy(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
             orb_collection_history=[],

@@ -332,7 +332,7 @@ class Player:
 
         # Update each ability and apply state modifications
         for ability in self.abilities.values():
-            if ability.enabled or ability.name == "DOUBLE_JUMP":  # Double jump always enabled
+            if ability.enabled:
                 modifications = ability.update(dt, player_state)
                 self._apply_ability_modifications(modifications)
 
