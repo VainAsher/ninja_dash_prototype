@@ -64,14 +64,19 @@ Controls
 Default Keybindings
 Movement:
 
-A / Left Arrow - Move left
-D / Right Arrow - Move right
-W / Space - Jump
-S / Down Arrow - Crouch
+Left Arrow - Move left
+Right Arrow - Move right
+Up Arrow / Space - Jump
+Down Arrow - Crouch
 Shift - Dash
 Advanced Movement:
 
 Q - Shadow Step (phase through walls)
+E - Grapple
+C - Air Dodge
+V - Slide
+Z - Time Slow
+R - Teleport
 Wall Jump - Jump while touching a wall
 Fast Fall - Hold Down while in air
 Game Controls:

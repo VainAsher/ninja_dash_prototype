@@ -18,7 +18,7 @@
 
 ### 5. Flight 🕊️
 - **Duration**: 10 seconds
-- **Effect**: Free flight with WASD/arrow keys, ignore gravity
+- **Effect**: Free flight with arrow keys, ignore gravity
 - **Visual**: Glowing wings, feather particles
 - **Spawn Rate**: 0.3%
 - **Color**: White/light blue

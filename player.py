@@ -380,11 +380,11 @@ class Player:
 
     def _handle_input(self, keys, tiles):
         """Process player input and trigger abilities."""
-        # Get input state
-        left = keys[pygame.K_a] or keys[pygame.K_LEFT]
-        right = keys[pygame.K_d] or keys[pygame.K_RIGHT]
-        down_now = keys[pygame.K_s] or keys[pygame.K_DOWN]
-        jump_down = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+        # Get input state - Arrow keys only for movement
+        left = keys[pygame.K_LEFT]
+        right = keys[pygame.K_RIGHT]
+        down_now = keys[pygame.K_DOWN]
+        jump_down = keys[pygame.K_UP] or keys[pygame.K_SPACE]
 
         # DEBUG: F-key controls for ability testing
         if keys[pygame.K_F1] and not getattr(self, '_f1_held', False):
@@ -471,8 +471,8 @@ class Player:
                 emit_ability_start("SHADOW_STEP")
         self._shadow_step_held = shadow_step_pressed
 
-        # Dash (Shift) - NEW: Hold to activate, release to deactivate
-        dash_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        # Dash (Left Shift) - Hold to activate, release to deactivate
+        dash_pressed = keys[pygame.K_LSHIFT]
         if FEATURES.get("dash", True):
             ability = self.abilities['dash']
             if dash_pressed:
@@ -492,8 +492,8 @@ class Player:
                     self.is_dashing = False
         self._dash_held = dash_pressed
 
-        # Slide (C key)
-        slide_key = keys[pygame.K_c]
+        # Slide (V key)
+        slide_key = keys[pygame.K_v]
         if slide_key and not self._slide_key_held:
             ability = self.abilities['slide']
             if ability.enabled and ability.can_use(player_state):
@@ -515,8 +515,8 @@ class Player:
                 self.combo_tracker.record_ability_use("WALL_CLING")
                 emit_ability_start("WALL_CLING")
 
-        # Air Dodge (X key) - NEW: Hang time support
-        air_dodge_key = keys[pygame.K_x]
+        # Air Dodge (C key) - Hang time support
+        air_dodge_key = keys[pygame.K_c]
         ability = self.abilities['air_dodge']
         if air_dodge_key and not self._air_dodge_held:
             if ability.enabled and ability.can_use(player_state):

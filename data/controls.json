@@ -3,20 +3,20 @@
   "description": "Ninja Dash - Data-driven control configuration",
   "keyboard": {
     "movement": {
-      "move_left": ["a", "left"],
-      "move_right": ["d", "right"],
-      "crouch_down": ["s", "down"],
-      "jump": ["space", "w", "up"]
+      "move_left": ["left"],
+      "move_right": ["right"],
+      "crouch_down": ["down"],
+      "jump": ["up", "space"]
     },
     "abilities": {
-      "dash": ["lshift", "rshift"],
+      "dash": ["lshift"],
       "shadow_step": ["q"],
       "grapple": ["e"],
-      "ground_pound": ["lctrl", "rctrl"],
-      "air_dodge": ["x"],
-      "slide": ["c"],
+      "ground_pound": ["lctrl"],
+      "air_dodge": ["c"],
+      "slide": ["v"],
       "glide": ["hold:space"],
-      "wall_cling": ["hold:a|d"],
+      "wall_cling": ["hold:left|right"],
       "time_slow": ["z"],
       "teleport": ["r"]
     },

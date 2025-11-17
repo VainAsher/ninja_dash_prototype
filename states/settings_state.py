@@ -29,9 +29,9 @@ class SettingsState(GameState):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.game.change_state("menu")
-            elif event.key in (pygame.K_LEFT, pygame.K_a):
+            elif event.key == pygame.K_LEFT:
                 self._cycle_difficulty(-1)
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+            elif event.key == pygame.K_RIGHT:
                 self._cycle_difficulty(+1)
 
     def update(self, dt: float) -> None:

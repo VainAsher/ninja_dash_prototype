@@ -27,9 +27,10 @@ class HelpState(GameState):
         sections = [
             ("Controls",
              [
-                 "Move:  A / D  or  Left / Right",
-                 "Jump:  W / Space / Up",
-                 "Dash:  Shift / J / K / L (when unlocked)",
+                 "Move:  Left / Right Arrow Keys",
+                 "Jump:  Up Arrow / Space",
+                 "Crouch: Down Arrow",
+                 "Dash:  Left Shift (when unlocked)",
                  "Pause: ESC",
              ]),
             ("Goal",
