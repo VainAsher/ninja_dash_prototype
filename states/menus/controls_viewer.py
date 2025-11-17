@@ -62,7 +62,9 @@ class ControlsViewerState(GameState):
 
             # Navigation
             if event.key == pygame.K_ESCAPE:
-                self.game.change_state("pause")
+                # Return to wherever we came from (help, menu, pause, etc.)
+                return_state = self.game.previous_state_name or "menu"
+                self.game.change_state(return_state)
                 return
 
             if event.key == pygame.K_LEFT:

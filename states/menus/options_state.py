@@ -290,7 +290,9 @@ class OptionsState(GameState):
             if event.key == pygame.K_ESCAPE:
                 # Save and return to previous state
                 self.modifiers.save_preferences()
-                self.game.change_state("pause")
+                # Return to wherever we came from (menu, pause, etc.)
+                return_state = self.game.previous_state_name or "menu"
+                self.game.change_state(return_state)
             elif event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 # Navigate tabs with arrow keys
                 self._navigate_tabs(1 if event.key == pygame.K_RIGHT else -1)

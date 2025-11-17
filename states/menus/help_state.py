@@ -39,44 +39,74 @@ class HelpState(GameState):
         sections = [
             ("Controls",
              [
-                 "Move:  Left / Right Arrow Keys",
-                 "Jump:  Up Arrow / Space",
-                 "Crouch: Down Arrow",
-                 "Dash:  Left Shift (when unlocked)",
-                 "Pause: ESC",
+                 "Move:        Arrow Keys (Left/Right)",
+                 "Jump:        Up Arrow or Space",
+                 "Crouch:      Down Arrow (hold)",
+                 "Dash:        Left Shift (hold)",
+                 "Slide:       V (while moving)",
+                 "Shadow Step: Q (teleport with invincibility)",
+                 "Air Dodge:   C (quick dodge in air)",
+                 "Pause:       ESC",
              ]),
             ("Goal",
              [
                  "Reach the exit to clear each level.",
                  "Collect coins to unlock the exit gate.",
                  "Avoid hazards or you'll lose health and lives.",
+                 "Collect ability orbs to unlock new abilities!",
              ]),
-            ("Abilities",
+            ("Core Abilities",
              [
-                 "Double Jump   – unlocks extra mid-air jump.",
-                 "Dash          – quick burst of speed, can pass through hazards.",
-                 "Wall Jump     – jump off walls to climb.",
-                 "Shadow Step   – brief invulnerability window during dash.",
-                 "Coin Magnet   – pulls nearby coins toward you.",
+                 "Double Jump  – Jump again in mid-air (default)",
+                 "Dash         – Quick burst of speed (uses stamina)",
+                 "Wall Jump    – Jump off walls to climb higher",
+                 "Slide        – Slide under obstacles at high speed",
+                 "Sword Attack – Attack enemies with your sword (default)",
              ]),
-            ("Meta Progression",
+            ("Advanced Abilities",
              [
-                 "Clearing levels awards points and unlocks abilities over time.",
-                 "Higher difficulties increase rewards and challenge.",
-                 "High scores are saved per difficulty.",
+                 "Wall Cling   – Hold onto walls to rest",
+                 "Shadow Step  – Phase through hazards and enemies",
+                 "Air Dodge    – Quick dodge with invincibility frames",
+                 "Glide        – Hold jump while falling to glide",
+                 "Grapple Hook – Swing or pull yourself to platforms",
+             ]),
+            ("Progression",
+             [
+                 "Collect Ability Orbs to unlock new abilities.",
+                 "Progress is saved automatically on level completion.",
+                 "Death deletes your save - play carefully!",
+                 "View unlocked abilities in the Unlocks menu.",
              ]),
         ]
 
-        y = 130
-        for header, lines in sections:
+        # Use two columns for better space utilization
+        left_sections = sections[:3]
+        right_sections = sections[3:]
+
+        # Left column
+        y = 120
+        for header, lines in left_sections:
             header_surf = FONT_SMALL.render(header, True, (220, 230, 255))
-            surface.blit(header_surf, (80, y))
-            y += 24
+            surface.blit(header_surf, (40, y))
+            y += 22
             for line in lines:
                 text_surf = FONT_SMALL.render("• " + line, True, COLOR_TEXT)
-                surface.blit(text_surf, (100, y))
-                y += 22
-            y += 10
+                surface.blit(text_surf, (55, y))
+                y += 20
+            y += 8
+
+        # Right column
+        y = 120
+        for header, lines in right_sections:
+            header_surf = FONT_SMALL.render(header, True, (220, 230, 255))
+            surface.blit(header_surf, (660, y))
+            y += 22
+            for line in lines:
+                text_surf = FONT_SMALL.render("• " + line, True, COLOR_TEXT)
+                surface.blit(text_surf, (675, y))
+                y += 20
+            y += 8
 
         # Draw Controls button
         btn_w = 240
