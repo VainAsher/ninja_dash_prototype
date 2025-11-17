@@ -79,7 +79,7 @@ class DebugOverlay:
         self.mode = self.MODE_MINIMAL if self.mode == self.MODE_FULL else self.MODE_FULL
         return self.mode
 
-    def render(self, surface: pygame.Surface, player: Any, modifiers=None):
+    def render(self, surface: pygame.Surface, player: Any, modifiers=None, seed=None):
         """
         Render debug overlay on the screen.
 
@@ -87,16 +87,17 @@ class DebugOverlay:
             surface: Pygame surface to draw on
             player: Player instance to debug
             modifiers: Optional GameplayModifiers instance
+            seed: Optional level seed to display
         """
         if not self.visible:
             return
 
         if self.mode == self.MODE_MINIMAL:
-            self._render_minimal(surface, player, modifiers)
+            self._render_minimal(surface, player, modifiers, seed)
         else:
-            self._render_full(surface, player, modifiers)
+            self._render_full(surface, player, modifiers, seed)
 
-    def _render_minimal(self, surface: pygame.Surface, player: Any, modifiers=None):
+    def _render_minimal(self, surface: pygame.Surface, player: Any, modifiers=None, seed=None):
         """Render minimal overlay (just active combos and modifiers)."""
         y_offset = self.panel_y
 
@@ -148,7 +149,7 @@ class DebugOverlay:
             surface.blit(bg_surface, bg_rect.topleft)
             surface.blit(text, (self.panel_x, y_offset))
 
-    def _render_full(self, surface: pygame.Surface, player: Any, modifiers=None):
+    def _render_full(self, surface: pygame.Surface, player: Any, modifiers=None, seed=None):
         """Render full detailed overlay."""
         y_offset = self.panel_y
 
@@ -166,6 +167,12 @@ class DebugOverlay:
         y_offset += self.line_height
         self._draw_text(surface, "[Tab: Toggle Mode]", self.panel_x + 10, y_offset, (150, 150, 150), self.small_font)
         y_offset += self.small_line_height + 5
+
+        # Level seed display
+        if seed is not None:
+            seed_text = f"Seed: {seed}"
+            self._draw_text(surface, seed_text, self.panel_x + 10, y_offset, (255, 255, 100), self.small_font)
+            y_offset += self.small_line_height + 5
 
         # Gameplay modifiers (if any active)
         if modifiers:
