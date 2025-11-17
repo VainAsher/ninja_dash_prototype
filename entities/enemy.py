@@ -328,7 +328,7 @@ class Enemy:
 
     def _check_player_collision(self, player: Any, game: Any = None) -> None:
         """
-        Check collision with player and deal contact damage.
+        Check collision with player and deal contact damage with knockback.
 
         Args:
             player: Player entity
@@ -347,22 +347,26 @@ class Enemy:
                 self.contact_damage_cooldown[player_id] = 0
 
             if current_time - self.contact_damage_cooldown[player_id] >= self.contact_damage_interval:
-                # Deal contact damage
+                # Deal contact damage with knockback using combat system
                 if hasattr(player, 'take_damage'):
-                    damage_dealt = player.take_damage(self.damage)
+                    # Import combat system for knockback
+                    from core.combat_system import deal_damage
+
+                    # Get damage numbers manager if available
+                    damage_numbers = getattr(game, 'damage_numbers', None)
+
+                    # Deal damage with knockback (200 force for enemy contact)
+                    damage_dealt = deal_damage(
+                        self,
+                        player,
+                        self.damage,
+                        knockback_force=200,
+                        damage_numbers=damage_numbers
+                    )
 
                     if damage_dealt:
                         # Update cooldown
                         self.contact_damage_cooldown[player_id] = current_time
-
-                        # Add damage number if game has damage_numbers
-                        if game and hasattr(game, 'damage_numbers'):
-                            game.damage_numbers.add_damage_number(
-                                player.rect.centerx,
-                                player.rect.centery - player.rect.height // 2,
-                                self.damage,
-                                color=(255, 100, 100)  # Light red for player damage
-                            )
 
     def take_damage(self, amount: int) -> bool:
         """
