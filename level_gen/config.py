@@ -17,6 +17,7 @@ from .constants import (
     DEFAULT_HOLE_CHANCE,
     DEFAULT_HAZARD_RATE,
     DEFAULT_COIN_DENSITY,
+    DEFAULT_COIN_COUNT_RANGE,
     DEFAULT_HEALTH_DENSITY,
     DEFAULT_LIVES_PER_LEVEL,
     DEFAULT_POWERUP_DENSITY,
@@ -25,6 +26,8 @@ from .constants import (
     DEFAULT_ENABLE_ABILITY_SUBROOMS,
     DEFAULT_SUBROOM_INTENSITY,
     DEFAULT_ENABLE_ABILITY_CHALLENGES,
+    DEFAULT_ENEMY_DENSITY,
+    ENEMY_MIN_SEPARATION,
 )
 
 
@@ -50,9 +53,11 @@ class LevelGenConfig:
         # Hazards & Enemies
         hazard_rate: Density of spike hazard spawns (0.0-1.0)
         enemy_density: Density of enemy spawns (0.0-1.0)
+        enemy_min_separation: Minimum distance between enemies (in tiles)
 
         # Pickups & Collectibles
-        coin_density: Density of coin spawns (0.0-1.0)
+        coin_density: (Deprecated) Density of coin spawns (0.0-1.0)
+        coin_count_range: Range of coins to spawn per level (min, max)
         health_density: Density of health pickup spawns (0.0-1.0)
         lives_per_level: Number of extra life pickups to spawn
         powerup_density: Density of power-up spawns (0.0-1.0)
@@ -103,10 +108,12 @@ class LevelGenConfig:
 
     # Hazards & Enemies
     hazard_rate: float = DEFAULT_HAZARD_RATE
-    enemy_density: float = 0.10  # Default 10% enemy spawn rate
+    enemy_density: float = DEFAULT_ENEMY_DENSITY  # Default ~1.67% enemy spawn rate
+    enemy_min_separation: int = ENEMY_MIN_SEPARATION  # Minimum 20 tiles between enemies
 
     # Pickups & Collectibles
-    coin_density: float = DEFAULT_COIN_DENSITY
+    coin_density: float = DEFAULT_COIN_DENSITY  # Deprecated - use coin_count_range instead
+    coin_count_range: Tuple[int, int] = DEFAULT_COIN_COUNT_RANGE  # Target coin count range
     health_density: float = DEFAULT_HEALTH_DENSITY
     lives_per_level: int = DEFAULT_LIVES_PER_LEVEL
     powerup_density: float = DEFAULT_POWERUP_DENSITY
@@ -176,7 +183,9 @@ class LevelGenConfig:
             'hole_chance': self.hole_chance,
             'hazard_rate': self.hazard_rate,
             'enemy_density': self.enemy_density,
+            'enemy_min_separation': self.enemy_min_separation,
             'coin_density': self.coin_density,
+            'coin_count_range': self.coin_count_range,
             'health_density': self.health_density,
             'lives_per_level': self.lives_per_level,
             'powerup_density': self.powerup_density,
@@ -250,8 +259,10 @@ EASY_CONFIG = LevelGenConfig(
     pillar_chance=0.20,
     hole_chance=0.15,
     hazard_rate=0.015,
-    enemy_density=0.05,
-    coin_density=0.05,
+    enemy_density=0.0083,  # Reduced to 1/6th of 0.05 (was 5%)
+    enemy_min_separation=20,
+    coin_density=0.05,  # Deprecated
+    coin_count_range=(10, 15),  # Easy: 10-15 coins
     health_density=0.010,
     lives_per_level=2,
     powerup_density=0.004,
@@ -268,8 +279,10 @@ MEDIUM_CONFIG = LevelGenConfig(
     pillar_chance=0.30,
     hole_chance=0.22,
     hazard_rate=0.03,
-    enemy_density=0.10,
-    coin_density=0.045,
+    enemy_density=0.0167,  # Reduced to 1/6th of 0.10 (was 10%)
+    enemy_min_separation=20,
+    coin_density=0.045,  # Deprecated
+    coin_count_range=(14, 21),  # Medium: 14-21 coins
     health_density=0.004,
     lives_per_level=1,
     powerup_density=0.003,
@@ -286,12 +299,34 @@ HARD_CONFIG = LevelGenConfig(
     pillar_chance=0.40,
     hole_chance=0.30,
     hazard_rate=0.045,
-    enemy_density=0.15,
-    coin_density=0.04,
+    enemy_density=0.025,  # Reduced to 1/6th of 0.15 (was 15%)
+    enemy_min_separation=20,
+    coin_density=0.04,  # Deprecated
+    coin_count_range=(19, 28),  # Hard: 19-28 coins
     health_density=0.003,
     lives_per_level=1,
     powerup_density=0.002,
     phaseable_wall_chance=0.15,
     coin_ratio=0.75,
     multiplier=2.0,
+)
+
+EXPERT_CONFIG = LevelGenConfig(
+    verticality_bias=0.8,
+    branchiness=0.45,
+    platform_band_step=3,
+    platform_len_range=(5, 12),
+    pillar_chance=0.50,
+    hole_chance=0.38,
+    hazard_rate=0.065,
+    enemy_density=0.0333,  # Reduced to 1/6th of 0.20 (was 20%)
+    enemy_min_separation=20,
+    coin_density=0.035,  # Deprecated
+    coin_count_range=(35, 48),  # Expert: 35-48 coins
+    health_density=0.001,
+    lives_per_level=1,
+    powerup_density=0.004,
+    phaseable_wall_chance=0.12,
+    coin_ratio=0.85,
+    multiplier=3.0,
 )

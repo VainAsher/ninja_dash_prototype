@@ -37,6 +37,7 @@ from .config import (
     EASY_CONFIG,
     MEDIUM_CONFIG,
     HARD_CONFIG,
+    EXPERT_CONFIG,
 )
 
 from .constants import (
@@ -82,6 +83,7 @@ __all__ = [
     'EASY_CONFIG',
     'MEDIUM_CONFIG',
     'HARD_CONFIG',
+    'EXPERT_CONFIG',
     # Constants
     'DEFAULT_VERTICALITY_BIAS',
     'DEFAULT_BRANCHINESS',

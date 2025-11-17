@@ -47,7 +47,9 @@ DIFFICULTY = "medium"
 DIFFICULTY_CONFIG = {
     "easy": {
         "coin_ratio": 0.40, "multiplier": 1.0,
-        "coin_density": 0.05, "hazard_rate": 0.015,
+        "coin_density": 0.05,  # Deprecated - use coin_count_range
+        "coin_count_range": (10, 15),  # Easy: 10-15 coins
+        "hazard_rate": 0.015,
         "verticality_bias": 0.3, "branchiness": 0.15,
         "platform_band_step": 4, "platform_len_range": (3, 7),
         "pillar_chance": 0.20, "hole_chance": 0.15,
@@ -55,11 +57,14 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 2,
         "powerup_density": 0.004,
         "phaseable_wall_chance": 0.25,
-        "enemy_density": 0.05,  # 5% spawn rate
+        "enemy_density": 0.0083,  # Reduced to 1/6th (was 5%)
+        "enemy_min_separation": 20,
     },
     "medium": {
         "coin_ratio": 0.60, "multiplier": 1.5,
-        "coin_density": 0.045, "hazard_rate": 0.03,
+        "coin_density": 0.045,  # Deprecated - use coin_count_range
+        "coin_count_range": (14, 21),  # Medium: 14-21 coins
+        "hazard_rate": 0.03,
         "verticality_bias": 0.5, "branchiness": 0.25,
         "platform_band_step": 4, "platform_len_range": (4, 8),
         "pillar_chance": 0.30, "hole_chance": 0.22,
@@ -67,11 +72,14 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.003,
         "phaseable_wall_chance": 0.20,
-        "enemy_density": 0.10,  # 10% spawn rate
+        "enemy_density": 0.0167,  # Reduced to 1/6th (was 10%)
+        "enemy_min_separation": 20,
     },
     "hard": {
         "coin_ratio": 0.75, "multiplier": 2.0,
-        "coin_density": 0.04, "hazard_rate": 0.045,
+        "coin_density": 0.04,  # Deprecated - use coin_count_range
+        "coin_count_range": (19, 28),  # Hard: 19-28 coins
+        "hazard_rate": 0.045,
         "verticality_bias": 0.65, "branchiness": 0.35,
         "platform_band_step": 3, "platform_len_range": (4, 10),
         "pillar_chance": 0.40, "hole_chance": 0.30,
@@ -79,11 +87,14 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.0025,
         "phaseable_wall_chance": 0.15,
-        "enemy_density": 0.15,  # 15% spawn rate
+        "enemy_density": 0.025,  # Reduced to 1/6th (was 15%)
+        "enemy_min_separation": 20,
     },
     "expert": {
         "coin_ratio": 0.85, "multiplier": 3.0,
-        "coin_density": 0.035, "hazard_rate": 0.065,
+        "coin_density": 0.035,  # Deprecated - use coin_count_range
+        "coin_count_range": (35, 48),  # Expert: 35-48 coins
+        "hazard_rate": 0.065,
         "verticality_bias": 0.8, "branchiness": 0.45,
         "platform_band_step": 3, "platform_len_range": (5, 12),
         "pillar_chance": 0.50, "hole_chance": 0.38,
@@ -91,7 +102,8 @@ DIFFICULTY_CONFIG = {
         "lives_per_level": 1,
         "powerup_density": 0.004,
         "phaseable_wall_chance": 0.12,
-        "enemy_density": 0.20,  # 20% spawn rate
+        "enemy_density": 0.0333,  # Reduced to 1/6th (was 20%)
+        "enemy_min_separation": 20,
     },
 }
 

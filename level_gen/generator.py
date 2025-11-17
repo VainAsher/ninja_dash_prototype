@@ -600,6 +600,8 @@ def generate_level(
     powerups = generate_powerups(world, rng, density=cfg.powerup_density)
 
     # Generate pickups (coins can now check for nearby magnet powerups)
+    # Use coin_count_range if available, otherwise fall back to coin_density
+    coin_count_range = getattr(cfg, 'coin_count_range', None)
     coins, healths, lives = generate_coins_and_pickups(
         world, rng,
         coin_density=cfg.coin_density,
@@ -607,7 +609,8 @@ def generate_level(
         lives_per_level=cfg.lives_per_level,
         hazards=hazards,
         powerups=powerups,
-        tiles=tiles
+        tiles=tiles,
+        coin_count_range=coin_count_range
     )
 
     # Add ability-aware coin challenges (with collision checking)
@@ -626,7 +629,8 @@ def generate_level(
 
     # Generate enemies (avoid player spawn area)
     enemy_density = cfg.enemy_density if hasattr(cfg, 'enemy_density') else 0.10
+    enemy_min_separation = getattr(cfg, 'enemy_min_separation', 20)
     entity_placer = EntityPlacer(world, rng)
-    enemy_positions = entity_placer.generate_enemies(enemy_density, spawn)
+    enemy_positions = entity_placer.generate_enemies(enemy_density, spawn, enemy_min_separation)
 
     return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions
