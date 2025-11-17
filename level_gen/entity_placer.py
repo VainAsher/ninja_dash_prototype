@@ -248,6 +248,54 @@ class EntityPlacer:
 
         return orbs
 
+    def generate_enemies(
+        self,
+        enemy_density: float = 0.10,
+        spawn_pos: Optional[Tuple[int, int]] = None
+    ) -> List[Tuple[int, int]]:
+        """
+        Generate enemy spawn positions on platforms.
+
+        Args:
+            enemy_density: Spawn rate for enemies (default: 10%)
+            spawn_pos: Player spawn position to avoid (pixel coordinates)
+
+        Returns:
+            List of (x, y) enemy spawn positions in pixel coordinates
+        """
+        enemy_positions = []
+
+        # Define safe zone around player spawn (first room)
+        safe_zone_radius = 5  # tiles
+        player_spawn_tile = None
+
+        if spawn_pos:
+            px, py = spawn_pos
+            player_spawn_tile = (px // TILE_SIZE, py // TILE_SIZE)
+
+        # Scan for valid enemy spawn locations
+        for ty in range(2, WORLD_H - 1):
+            for tx in range(1, WORLD_W - 1):
+                # Must be valid spawn location (on a platform)
+                if not valid_pickup_spot(self.world, tx, ty):
+                    continue
+
+                # Skip if too close to player spawn
+                if player_spawn_tile:
+                    ptx, pty = player_spawn_tile
+                    distance = abs(tx - ptx) + abs(ty - pty)  # Manhattan distance
+                    if distance < safe_zone_radius:
+                        continue
+
+                # Random chance for enemy spawn
+                if self.rng.random() < enemy_density:
+                    # Convert tile to pixel coordinates (centered on platform)
+                    ex = tx * TILE_SIZE
+                    ey = (ty - 1) * TILE_SIZE  # Spawn one tile above the platform
+                    enemy_positions.append((ex, ey))
+
+        return enemy_positions
+
 
 # Standalone helper functions (for backward compatibility)
 # These now delegate to the utils module

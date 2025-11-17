@@ -49,6 +49,7 @@ class LevelGenConfig:
 
         # Hazards & Enemies
         hazard_rate: Density of spike hazard spawns (0.0-1.0)
+        enemy_density: Density of enemy spawns (0.0-1.0)
 
         # Pickups & Collectibles
         coin_density: Density of coin spawns (0.0-1.0)
@@ -102,6 +103,7 @@ class LevelGenConfig:
 
     # Hazards & Enemies
     hazard_rate: float = DEFAULT_HAZARD_RATE
+    enemy_density: float = 0.10  # Default 10% enemy spawn rate
 
     # Pickups & Collectibles
     coin_density: float = DEFAULT_COIN_DENSITY
@@ -173,6 +175,7 @@ class LevelGenConfig:
             'pillar_chance': self.pillar_chance,
             'hole_chance': self.hole_chance,
             'hazard_rate': self.hazard_rate,
+            'enemy_density': self.enemy_density,
             'coin_density': self.coin_density,
             'health_density': self.health_density,
             'lives_per_level': self.lives_per_level,
@@ -207,6 +210,7 @@ class LevelGenConfig:
             ('pillar_chance', self.pillar_chance),
             ('hole_chance', self.hole_chance),
             ('hazard_rate', self.hazard_rate),
+            ('enemy_density', self.enemy_density),
             ('coin_density', self.coin_density),
             ('health_density', self.health_density),
             ('powerup_density', self.powerup_density),
@@ -246,6 +250,7 @@ EASY_CONFIG = LevelGenConfig(
     pillar_chance=0.20,
     hole_chance=0.15,
     hazard_rate=0.015,
+    enemy_density=0.05,
     coin_density=0.05,
     health_density=0.010,
     lives_per_level=2,
@@ -263,6 +268,7 @@ MEDIUM_CONFIG = LevelGenConfig(
     pillar_chance=0.30,
     hole_chance=0.22,
     hazard_rate=0.03,
+    enemy_density=0.10,
     coin_density=0.045,
     health_density=0.004,
     lives_per_level=1,
@@ -280,6 +286,7 @@ HARD_CONFIG = LevelGenConfig(
     pillar_chance=0.40,
     hole_chance=0.30,
     hazard_rate=0.045,
+    enemy_density=0.15,
     coin_density=0.04,
     health_density=0.003,
     lives_per_level=1,

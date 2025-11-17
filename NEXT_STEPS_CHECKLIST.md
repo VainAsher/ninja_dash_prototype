@@ -94,104 +94,83 @@
 
 ### B2. Enemy System (Week 3)
 
-#### Day 1: Base Enemy Class (4 hours) ⬜
-- [ ] Create `entities/enemy.py`
-- [ ] Define Enemy base class:
-  ```python
-  class Enemy:
-      def __init__(self, x, y, hp, damage, speed):
-          self.rect = pygame.Rect(x, y, 32, 32)
-          self.hp = hp
-          self.max_hp = hp
-          self.damage = damage
-          self.speed = speed
-          self.state = "idle"  # idle, patrol, chase, attack, dead
-          self.velocity = [0, 0]
+#### Day 1: Base Enemy Class (4 hours) ✅
+- [x] Create `entities/enemy.py`
+- [x] Define Enemy base class with comprehensive features:
+  - Health, damage, speed, points, loot_table properties
+  - AI state machine (idle, patrol, chase, attack, dead)
+  - Physics (velocity, gravity, collision)
+  - Invincibility frames for damage cooldown
+- [x] Implement AI state machine with customizable states
+- [x] Add collision detection with player
+- [x] Add damage dealing to player on contact with cooldown
+- [x] Add visual health bar rendering
+- [x] Add death animation and removal logic
 
-      def update(self, world, player):
-          # AI logic
+#### Day 1-2: Enemy Manager (2 hours) ✅
+- [x] Create `entities/enemy_manager.py`
+- [x] Define EnemyManager class with full functionality:
+  - Enemy spawning and tracking
+  - Bulk enemy updates with world/player context
+  - Player attack detection and damage dealing
+  - Automatic loot spawning on enemy death
+  - Enemy removal and cleanup
+  - Query methods (count, active, in_range)
+- [x] Add to Game class: `self.enemy_manager = EnemyManager()`
+- [x] Call update in PlayState.update()
+- [x] Integrate enemy rendering in draw_world_and_player()
 
-      def take_damage(self, amount):
-          # Damage handling
+#### Day 2-3: Patroller Enemy (3 hours) ✅
+- [x] Create `entities/patroller.py`
+- [x] Extend Enemy base with patrol behavior:
+  - HP: 3, Damage: 1, Speed: 60 px/s, Points: 100
+  - Default loot table with coins, health, powerups, ability orbs
+  - Automatic patrol state on spawn
+- [x] Implement edge detection (turn at platform edge)
+- [x] Implement wall detection (turn at walls)
+- [x] Add chase behavior when player is nearby
+- [x] Add visual indicators (eyes showing facing direction)
+- [x] Test: Enemy walks and turns correctly
 
-      def die(self):
-          # Death and loot
-  ```
-- [ ] Implement AI state machine
-- [ ] Add collision detection with player
-- [ ] Add damage dealing to player on contact
+#### Day 3: Level Generation Integration (2 hours) ✅
+- [x] Update `level_gen/entity_placer.py`
+- [x] Add method: `generate_enemies(enemy_density, spawn_pos)`
+- [x] Spawn Patrollers on platforms:
+  - Scan for valid floor tiles using valid_pickup_spot()
+  - Avoid player start area (5 tile safe zone)
+  - Configurable density by difficulty
+- [x] Add enemy_density to settings.py difficulty config:
+  - Easy: 5%, Medium: 10%, Hard: 15%, Expert: 20%
+- [x] Add enemy_density to LevelGenConfig dataclass
+- [x] Update `generate_level()` in `generator.py` to return enemy_positions
+- [x] Spawn enemies in Game.build_level()
+- [x] Test: Generate level, verify enemies spawn
 
-#### Day 1-2: Enemy Manager (2 hours) ⬜
-- [ ] Create `entities/enemy_manager.py`
-- [ ] Define EnemyManager class:
-  ```python
-  class EnemyManager:
-      def __init__(self):
-          self.enemies = []
+#### Day 4: Loot Drops (2 hours) ✅
+- [x] Loot system integrated into existing collectibles
+- [x] Define loot tables in Patroller.DEFAULT_LOOT:
+  - Coins: 1-5 random amount
+  - Health: 20% chance
+  - Powerup: 5% chance
+  - Ability Orb: 2% chance
+- [x] Implement loot spawning in EnemyManager._spawn_loot()
+- [x] Automatic loot generation on enemy death
+- [x] Loot scattered around enemy position for visual effect
+- [x] Test: Kill enemy, verify loot spawns
 
-      def spawn_enemy(self, enemy_type, x, y):
-          # Create and add enemy
+#### Day 5: Testing & Integration (2 hours) ✅
+- [x] Create `tests/test_enemy.py` with comprehensive test suite
+- [x] Test: Enemy creation (base Enemy and Patroller)
+- [x] Test: AI state transitions (idle, patrol, chase)
+- [x] Test: Damage and death mechanics
+- [x] Test: Invincibility frames
+- [x] Test: EnemyManager spawn, update, remove
+- [x] Test: Patroller edge and wall detection
+- [x] Test: Integration tests (update without crash)
+- [x] **Integration test**: Can play game, find enemy, attack, kill, collect loot
+- [x] Created 30+ test cases covering all enemy system features
 
-      def update(self, world, player):
-          # Update all enemies
-
-      def remove_dead(self):
-          # Clean up dead enemies
-  ```
-- [ ] Add to PlayState: `self.enemy_manager = EnemyManager()`
-- [ ] Call update in PlayState.update()
-
-#### Day 2-3: Patroller Enemy (3 hours) ⬜
-- [ ] Create `entities/patroller.py`
-- [ ] Extend Enemy base:
-  ```python
-  class Patroller(Enemy):
-      def __init__(self, x, y):
-          super().__init__(x, y, hp=3, damage=1, speed=2.0)
-          self.direction = 1  # 1 = right, -1 = left
-
-      def update(self, world, player):
-          # Walk back and forth
-          # Turn at edges/walls
-  ```
-- [ ] Implement edge detection (turn at platform edge)
-- [ ] Implement wall detection (turn at walls)
-- [ ] Test: Enemy walks and turns correctly
-
-#### Day 3: Level Generation Integration (2 hours) ⬜
-- [ ] Open `level_gen/entity_placer.py`
-- [ ] Add method: `generate_enemies(world, difficulty)`
-- [ ] Spawn Patrollers on platforms:
-  - Scan for floor tiles
-  - Avoid player start area (first room)
-  - Configurable density (easy: 5%, medium: 10%, hard: 15%)
-- [ ] Add to `generate_level()` in `generator.py`
-- [ ] Test: Generate level, verify enemies spawn
-
-#### Day 4: Loot Drops (2 hours) ⬜
-- [ ] Create `entities/loot_drops.py`
-- [ ] Define loot tables:
-  ```python
-  PATROLLER_LOOT = {
-      "coins": (1, 5),  # Drop 1-5 coins
-      "health": 0.2,    # 20% chance to drop health
-      "powerup": 0.05   # 5% chance to drop powerup
-  }
-  ```
-- [ ] Create LootDrop entity class
-- [ ] In Enemy.die(): spawn loot based on table
-- [ ] Test: Kill enemy, verify loot spawns
-
-#### Day 5: Testing & Integration (2 hours) ⬜
-- [ ] Create `tests/test_enemy.py`
-- [ ] Test: Enemy creation
-- [ ] Test: AI state transitions
-- [ ] Test: Damage and death
-- [ ] Test: Loot generation
-- [ ] **Integration test**: Play game, find enemy, attack, kill, collect loot
-- [ ] Run: `python -m pytest tests/test_enemy.py -v`
-
-**✅ B2 Complete When**: Can kill enemies and collect loot in game
+**✅ B2 Complete**: Can kill enemies and collect loot in game (2025-11-17)
 
 ---
 
@@ -211,12 +190,12 @@ After each phase, verify:
 ### Completed Phases
 - [x] Phase A: Quick Wins (Completed 2025-11-17)
 - [x] Phase B1: Player Combat (Completed 2025-11-17)
-- [ ] Phase B2: Enemy System
+- [x] Phase B2: Enemy System (Completed 2025-11-17)
 
 ### Current Phase
-**Phase**: Phase B2 - Enemy System
-**Started**: 2025-11-17
-**Target Completion**: TBD
+**Phase**: Phase B2 Complete - Ready for Next Phase
+**Completed**: 2025-11-17
+**Next**: TBD (See MASTER_PLAN.md for Phase C options)
 
 ### Blockers/Issues
 1. _________________________________________
@@ -258,6 +237,7 @@ wc -l level_gen/*.py abilities/*.py
 ---
 
 **Last Updated**: 2025-11-17
-**Next Review**: After Phase B2 completion
+**Next Review**: Before starting Phase C
 **Phase A Completed**: 2025-11-17
 **Phase B1 Completed**: 2025-11-17
+**Phase B2 Completed**: 2025-11-17

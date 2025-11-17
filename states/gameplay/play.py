@@ -96,6 +96,11 @@ class PlayState(GameState):
         if hasattr(self.game, 'damage_numbers'):
             self.game.damage_numbers.update(dt)
 
+        # Update enemies
+        if hasattr(self.game, 'enemy_manager'):
+            self.game.enemy_manager.update(dt, self.game.world, player, self.game)
+            self.game.enemy_manager.remove_dead()
+
         cfg = DIFFICULTY_CONFIG[self.game.difficulty]
         multiplier = cfg.get("multiplier", 1.0)
         coin_value = int(10 * multiplier)  # kept for future scaling if needed
