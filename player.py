@@ -160,7 +160,7 @@ class Player:
         if ability_key and ability_key in self.abilities:
             self.abilities[ability_key].enabled = True
 
-    def update(self, keys, tiles, dt, phaseable_walls=None, abilities=None):
+    def update(self, keys, tiles, dt, phaseable_walls=None, abilities=None, modifiers=None):
         """
         Update player state based on input and physics.
 
@@ -170,11 +170,15 @@ class Player:
             dt: Delta time since last frame
             phaseable_walls: Optional list of walls that can be phased through
             abilities: Optional list of unlocked ability names
+            modifiers: Optional GameplayModifiers instance
         """
         if phaseable_walls is None:
             phaseable_walls = []
         if abilities is None:
             abilities = []
+
+        # Store modifiers reference for use in other methods
+        self._modifiers = modifiers
 
         # Unlock abilities from list
         for ability_name in abilities:
@@ -210,6 +214,10 @@ class Player:
 
     def take_damage(self, amount):
         """Apply damage to player if not invincible."""
+        # Check god mode first
+        if hasattr(self, '_modifiers') and self._modifiers and self._modifiers.god_mode:
+            return False
+
         # Check all sources of invincibility
         if self.is_invulnerable():
             return False
@@ -296,6 +304,18 @@ class Player:
             if ability.enabled or ability.name == "DOUBLE_JUMP":  # Double jump always enabled
                 modifications = ability.update(dt, player_state)
                 self._apply_ability_modifications(modifications)
+
+                # Apply infinite resources modifiers
+                if hasattr(self, '_modifiers') and self._modifiers:
+                    # Infinite stamina (dash, wall cling)
+                    if self._modifiers.infinite_stamina:
+                        if ability.name in ["DASH", "WALL_CLING"]:
+                            ability.resource = ability.max_resource
+
+                    # Infinite charges (shadow step, grapple)
+                    if self._modifiers.infinite_charges:
+                        if ability.name in ["SHADOW_STEP", "GRAPPLE_HOOK"]:
+                            ability.resource = ability.max_resource
 
         # Update active state flags from abilities
         self.is_dashing = self.abilities['dash'].is_active
@@ -386,51 +406,11 @@ class Player:
         down_now = keys[pygame.K_DOWN]
         jump_down = keys[pygame.K_UP] or keys[pygame.K_SPACE]
 
-        # DEBUG: F-key controls for ability testing
-        if keys[pygame.K_F1] and not getattr(self, '_f1_held', False):
-            self.abilities['double_jump'].enabled = not self.abilities['double_jump'].enabled
-            print(f"[DEBUG] Double Jump: {'ENABLED' if self.abilities['double_jump'].enabled else 'DISABLED'}")
-        self._f1_held = keys[pygame.K_F1]
-
-        if keys[pygame.K_F2] and not getattr(self, '_f2_held', False):
-            self.abilities['dash'].enabled = not self.abilities['dash'].enabled
-            print(f"[DEBUG] Dash: {'ENABLED' if self.abilities['dash'].enabled else 'DISABLED'}")
-        self._f2_held = keys[pygame.K_F2]
-
-        if keys[pygame.K_F3] and not getattr(self, '_f3_held', False):
-            self.abilities['slide'].enabled = not self.abilities['slide'].enabled
-            print(f"[DEBUG] Slide: {'ENABLED' if self.abilities['slide'].enabled else 'DISABLED'}")
-        self._f3_held = keys[pygame.K_F3]
-
-        if keys[pygame.K_F4] and not getattr(self, '_f4_held', False):
-            self.abilities['shadow_step'].enabled = not self.abilities['shadow_step'].enabled
-            print(f"[DEBUG] Shadow Step: {'ENABLED' if self.abilities['shadow_step'].enabled else 'DISABLED'}")
-        self._f4_held = keys[pygame.K_F4]
-
-        if keys[pygame.K_F5] and not getattr(self, '_f5_held', False):
-            self.abilities['wall_cling'].enabled = not self.abilities['wall_cling'].enabled
-            print(f"[DEBUG] Wall Cling: {'ENABLED' if self.abilities['wall_cling'].enabled else 'DISABLED'}")
-        self._f5_held = keys[pygame.K_F5]
-
-        if keys[pygame.K_F6] and not getattr(self, '_f6_held', False):
-            self.abilities['air_dodge'].enabled = not self.abilities['air_dodge'].enabled
-            print(f"[DEBUG] Air Dodge: {'ENABLED' if self.abilities['air_dodge'].enabled else 'DISABLED'}")
-        self._f6_held = keys[pygame.K_F6]
-
-        if keys[pygame.K_F7] and not getattr(self, '_f7_held', False):
-            self.abilities['glide'].enabled = not self.abilities['glide'].enabled
-            print(f"[DEBUG] Glide: {'ENABLED' if self.abilities['glide'].enabled else 'DISABLED'}")
-        self._f7_held = keys[pygame.K_F7]
-
-        if keys[pygame.K_F8] and not getattr(self, '_f8_held', False):
-            self.abilities['sword_attack'].enabled = not self.abilities['sword_attack'].enabled
-            print(f"[DEBUG] Sword Attack: {'ENABLED' if self.abilities['sword_attack'].enabled else 'DISABLED'}")
-        self._f8_held = keys[pygame.K_F8]
-
-        if keys[pygame.K_F9] and not getattr(self, '_f9_held', False):
-            self.abilities['grapple_hook'].enabled = not self.abilities['grapple_hook'].enabled
-            print(f"[DEBUG] Grapple Hook: {'ENABLED' if self.abilities['grapple_hook'].enabled else 'DISABLED'}")
-        self._f9_held = keys[pygame.K_F9]
+        # Apply ability enabled states from modifiers (if available)
+        if hasattr(self, '_modifiers') and self._modifiers:
+            for ability_name, enabled in self._modifiers.ability_states.items():
+                if ability_name in self.abilities:
+                    self.abilities[ability_name].enabled = enabled
 
         # Wall jump can lock horizontal input
         if self.abilities['wall_jump'].is_input_locked():
@@ -662,6 +642,10 @@ class Player:
         """Apply gravity and vertical movement modifiers."""
         down = keys[pygame.K_s] or keys[pygame.K_DOWN]
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+
+        # Flight mode disables gravity entirely
+        if hasattr(self, '_modifiers') and self._modifiers and self._modifiers.flight_mode:
+            return
 
         # Air Dodge (dodging phase) and Glide handle their own vertical movement
         if self.is_air_dodging or self.is_gliding:
