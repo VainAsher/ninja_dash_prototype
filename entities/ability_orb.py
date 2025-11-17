@@ -137,6 +137,12 @@ class AbilityOrb:
         if unlock_mgr:
             newly_unlocked = unlock_mgr.add_ability_orb()
 
+        # Immediately enable newly unlocked abilities in the player (mid-level unlock)
+        player = getattr(game, 'player', None)
+        if player and newly_unlocked:
+            for ability_id in newly_unlocked:
+                player.unlock_ability(ability_id)
+
         # Trigger collection effects
         self._trigger_collection_effects(game, newly_unlocked)
 
