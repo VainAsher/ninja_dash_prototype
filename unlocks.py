@@ -179,6 +179,11 @@ class UnlockState:
     ability_orbs_total: int
     ability_orbs_spent: int
     orb_collection_history: List[str]  # Timestamps of collections
+    # Game state fields for save/load
+    level_index: int = 1
+    lives: int = 3
+    total_score: int = 0
+    game_time: float = 0.0
 
     def to_jsonable(self) -> Dict[str, Any]:
         return {
@@ -186,6 +191,10 @@ class UnlockState:
             "ability_orbs_total": self.ability_orbs_total,
             "ability_orbs_spent": self.ability_orbs_spent,
             "orb_collection_history": self.orb_collection_history,
+            "level_index": self.level_index,
+            "lives": self.lives,
+            "total_score": self.total_score,
+            "game_time": self.game_time,
         }
 
     @classmethod
@@ -195,7 +204,11 @@ class UnlockState:
                 unlocked=set(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
-                orb_collection_history=[]
+                orb_collection_history=[],
+                level_index=1,
+                lives=3,
+                total_score=0,
+                game_time=0.0,
             )
 
         unlocked = data.get("unlocked", [])
@@ -206,7 +219,11 @@ class UnlockState:
             unlocked=set(str(x) for x in unlocked),
             ability_orbs_total=int(data.get("ability_orbs_total", 0)),
             ability_orbs_spent=int(data.get("ability_orbs_spent", 0)),
-            orb_collection_history=data.get("orb_collection_history", [])
+            orb_collection_history=data.get("orb_collection_history", []),
+            level_index=int(data.get("level_index", 1)),
+            lives=int(data.get("lives", 3)),
+            total_score=int(data.get("total_score", 0)),
+            game_time=float(data.get("game_time", 0.0)),
         )
 
 
@@ -220,18 +237,27 @@ class UnlockManager:
             unlocked=set(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
-            orb_collection_history=[]
+            orb_collection_history=[],
+            level_index=1,
+            lives=3,
+            total_score=0,
+            game_time=0.0,
         )
-        self.load()
+        # Don't auto-load on init - game will call load_game_state() when continuing
 
     def load(self) -> None:
+        """Legacy load method - kept for backwards compatibility."""
         p = _unlocks_path()
         if not p.exists():
             self._state = UnlockState(
                 unlocked=set(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
-                orb_collection_history=[]
+                orb_collection_history=[],
+                level_index=1,
+                lives=3,
+                total_score=0,
+                game_time=0.0,
             )
             return
         try:
@@ -242,21 +268,90 @@ class UnlockManager:
                 unlocked=set(),
                 ability_orbs_total=0,
                 ability_orbs_spent=0,
-                orb_collection_history=[]
+                orb_collection_history=[],
+                level_index=1,
+                lives=3,
+                total_score=0,
+                game_time=0.0,
             )
             return
         self._state = UnlockState.from_jsonable(raw)
 
     def save(self) -> None:
+        """Internal save method - use save_game_state() for explicit saves."""
         try:
             with _unlocks_path().open("w", encoding="utf-8") as f:
                 json.dump(self._state.to_jsonable(), f, indent=2)
         except OSError:
             pass
 
+    def has_save(self) -> bool:
+        """Check if a save file exists."""
+        return _unlocks_path().exists()
+
+    def save_game_state(self, level_index: int, lives: int, total_score: int, game_time: float) -> None:
+        """
+        Save complete game state to disk.
+        Called on quit or at auto-save checkpoints.
+        """
+        self._state.level_index = level_index
+        self._state.lives = lives
+        self._state.total_score = total_score
+        self._state.game_time = game_time
+        self.save()
+        print(f"💾 Game saved: Level {level_index}, {lives} lives, {total_score} score")
+
+    def load_game_state(self) -> Dict[str, Any]:
+        """
+        Load complete game state from disk.
+        Returns dict with level_index, lives, total_score, game_time.
+        """
+        self.load()
+        return {
+            "level_index": self._state.level_index,
+            "lives": self._state.lives,
+            "total_score": self._state.total_score,
+            "game_time": self._state.game_time,
+        }
+
+    def delete_save(self) -> None:
+        """Delete save file (called on Game Over)."""
+        p = _unlocks_path()
+        if p.exists():
+            try:
+                p.unlink()
+                print("🗑️  Save file deleted (Game Over)")
+            except OSError:
+                pass
+        # Reset to defaults
+        self._state = UnlockState(
+            unlocked=set(),
+            ability_orbs_total=0,
+            ability_orbs_spent=0,
+            orb_collection_history=[],
+            level_index=1,
+            lives=3,
+            total_score=0,
+            game_time=0.0,
+        )
+
+    def reset_to_defaults(self) -> None:
+        """Reset to default state (called on New Game)."""
+        self._state = UnlockState(
+            unlocked=set(),
+            ability_orbs_total=0,
+            ability_orbs_spent=0,
+            orb_collection_history=[],
+            level_index=1,
+            lives=3,
+            total_score=0,
+            game_time=0.0,
+        )
+
     def add_ability_orb(self, count: int = 1) -> List[str]:
         """
         Add collected ability orb(s) and check for auto-unlocks.
+        Note: Does NOT auto-save. Save is only triggered on quit or checkpoints.
 
         Args:
             count: Number of orbs to add (default 1)
@@ -274,7 +369,7 @@ class UnlockManager:
         # Check if we can auto-unlock any abilities
         newly_unlocked = self._check_auto_unlocks()
 
-        self.save()
+        # NO AUTO-SAVE - progression is temporary until explicit save
 
         return newly_unlocked
 
@@ -383,6 +478,7 @@ class UnlockManager:
     def unlock(self, ability_id: str) -> bool:
         """
         Manually unlock an ability (for debugging/cheats).
+        Note: Does NOT auto-save.
 
         Returns:
             True if newly unlocked, False if already unlocked
@@ -390,7 +486,7 @@ class UnlockManager:
         if ability_id in self._state.unlocked:
             return False
         self._state.unlocked.add(ability_id)
-        self.save()
+        # NO AUTO-SAVE
         return True
 
     def unlock_next(self) -> Optional[str]:
@@ -409,13 +505,18 @@ class UnlockManager:
         return [a for a in ABILITY_ORDER if a in self._state.unlocked]
 
     def reset(self) -> None:
+        """Reset unlocks only (deprecated - use reset_to_defaults() or delete_save())."""
         self._state = UnlockState(
             unlocked=set(),
             ability_orbs_total=0,
             ability_orbs_spent=0,
-            orb_collection_history=[]
+            orb_collection_history=[],
+            level_index=1,
+            lives=3,
+            total_score=0,
+            game_time=0.0,
         )
-        self.save()
+        # NO AUTO-SAVE
 
     def get_all_ability_info(self) -> List[Dict[str, Any]]:
         """
