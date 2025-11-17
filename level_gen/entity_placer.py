@@ -18,11 +18,14 @@ from settings import (
 from .constants import (
     DEFAULT_HAZARD_RATE,
     DEFAULT_COIN_DENSITY,
+    DEFAULT_COIN_COUNT_RANGE,
     DEFAULT_HEALTH_DENSITY,
     DEFAULT_LIVES_PER_LEVEL,
     DEFAULT_POWERUP_DENSITY,
     DEFAULT_ABILITY_ORB_SPAWN_RATE,
+    DEFAULT_ENEMY_DENSITY,
     HAZARD_SAFE_RADIUS,
+    ENEMY_MIN_SEPARATION,
     MAX_SPAWN_ATTEMPTS,
 )
 
@@ -96,18 +99,20 @@ class EntityPlacer:
         lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
         hazards: Optional[List[pygame.Rect]] = None,
         powerups: Optional[List[Dict[str, Any]]] = None,
-        tiles: Optional[List[pygame.Rect]] = None
+        tiles: Optional[List[pygame.Rect]] = None,
+        coin_count_range: Optional[Tuple[int, int]] = None
     ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
         """
         Generate coins, health, and lives with collision detection.
 
         Args:
-            coin_density: Spawn rate for coins
+            coin_density: Spawn rate for coins (deprecated - use coin_count_range)
             health_density: Spawn rate for health pickups
             lives_per_level: Number of extra lives to spawn
             hazards: List of hazard rectangles to avoid
             powerups: List of powerup dictionaries (to check for nearby magnet powerups)
             tiles: List of solid tile rectangles (to check for collision)
+            coin_count_range: Target range for coin count (min, max) - if provided, overrides density-based spawning
 
         Returns:
             Tuple of (coins, healths, lives) - lists of rectangles
@@ -135,14 +140,60 @@ class EntityPlacer:
             if powerup.get('type') == 'magnet':
                 magnet_positions.append(powerup['rect'].center)
 
-        # Generate coins and health pickups
+        # Collect all valid spawn locations
+        valid_locations = []
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue
                 if not far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
                     continue
+                valid_locations.append((tx, ty))
 
+        # Use count-based spawning if coin_count_range is provided
+        if coin_count_range is not None:
+            min_coins, max_coins = coin_count_range
+            target_coin_count = self.rng.randint(min_coins, max_coins)
+
+            # Shuffle valid locations and pick first N for coins
+            self.rng.shuffle(valid_locations)
+
+            for i, (tx, ty) in enumerate(valid_locations):
+                if len(coins) >= target_coin_count:
+                    break
+
+                cx = tx * TILE_SIZE + TILE_SIZE // 4
+                cy = ty * TILE_SIZE + TILE_SIZE // 4
+                coin_rect = pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2)
+
+                # Check for collision with hazards or solid tiles
+                has_collision = False
+                if any(coin_rect.colliderect(h) for h in hazards):
+                    has_collision = True
+                if any(coin_rect.colliderect(t) for t in tiles):
+                    has_collision = True
+
+                # If collision detected, only allow if there's a nearby magnet powerup
+                if has_collision:
+                    has_nearby_magnet = self._has_nearby_magnet(
+                        coin_rect.center,
+                        magnet_positions,
+                        POWERUP_MAGNET_RADIUS
+                    )
+                    if not has_nearby_magnet:
+                        continue  # Skip this coin
+
+                coins.append(coin_rect)
+
+            # Generate health pickups from remaining locations
+            for tx, ty in valid_locations[len(coins):]:
+                if self.rng.random() < health_density:
+                    hx = tx * TILE_SIZE + TILE_SIZE // 4
+                    hy = ty * TILE_SIZE + TILE_SIZE // 4
+                    healths.append(pygame.Rect(hx, hy, TILE_SIZE // 2, TILE_SIZE // 2))
+        else:
+            # Legacy probability-based spawning
+            for tx, ty in valid_locations:
                 if self.rng.random() < coin_density:
                     cx = tx * TILE_SIZE + TILE_SIZE // 4
                     cy = ty * TILE_SIZE + TILE_SIZE // 4
@@ -251,19 +302,22 @@ class EntityPlacer:
     def generate_enemies(
         self,
         enemy_density: float = 0.05,
-        spawn_pos: Optional[Tuple[int, int]] = None
+        spawn_pos: Optional[Tuple[int, int]] = None,
+        min_separation: int = 20
     ) -> List[Tuple[int, int]]:
         """
-        Generate enemy spawn positions on platforms.
+        Generate enemy spawn positions on platforms with proximity checking.
 
         Args:
-            enemy_density: Spawn rate for enemies (default: 10%)
+            enemy_density: Spawn rate for enemies (probability per valid location)
             spawn_pos: Player spawn position to avoid (pixel coordinates)
+            min_separation: Minimum distance between enemies in tiles (default: 20)
 
         Returns:
             List of (x, y) enemy spawn positions in pixel coordinates
         """
         enemy_positions = []
+        enemy_tiles = []  # Track enemy positions in tile coordinates
 
         # Define safe zone around player spawn (first room)
         safe_zone_radius = 5  # tiles
@@ -287,6 +341,20 @@ class EntityPlacer:
                     if distance < safe_zone_radius:
                         continue
 
+                # Check if too close to any existing enemy
+                too_close = False
+                for etx, ety in enemy_tiles:
+                    # Calculate Euclidean distance for better circular spacing
+                    dx = tx - etx
+                    dy = ty - ety
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist < min_separation:
+                        too_close = True
+                        break
+
+                if too_close:
+                    continue
+
                 # Random chance for enemy spawn
                 if self.rng.random() < enemy_density:
                     # Convert tile to pixel coordinates (centered on platform)
@@ -297,6 +365,7 @@ class EntityPlacer:
                     # Enemy bottom should be at platform_top + 2 for guaranteed overlap
                     ey = (ty + 1) * TILE_SIZE - TILE_SIZE + 2
                     enemy_positions.append((ex, ey))
+                    enemy_tiles.append((tx, ty))
 
         return enemy_positions
 
@@ -327,11 +396,12 @@ def generate_coins_and_pickups(
     lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
     hazards: Optional[List[pygame.Rect]] = None,
     powerups: Optional[List[Dict[str, Any]]] = None,
-    tiles: Optional[List[pygame.Rect]] = None
+    tiles: Optional[List[pygame.Rect]] = None,
+    coin_count_range: Optional[Tuple[int, int]] = None
 ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
     """Generate coins, health, and lives with collision detection."""
     placer = EntityPlacer(world, rng)
-    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards, powerups, tiles)
+    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards, powerups, tiles, coin_count_range)
 
 
 def generate_powerups(world: List[List[int]], rng: random.Random, density: float = DEFAULT_POWERUP_DENSITY) -> List[Dict[str, Any]]:

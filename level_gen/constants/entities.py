@@ -27,17 +27,55 @@ Technical Note:
     Uses Manhattan distance (|dx| + |dy|) for efficiency
 """
 
+# Enemy Spawning
+DEFAULT_ENEMY_DENSITY = 0.0167
+"""Float: Density of enemy spawns (0.0-1.0)
+
+Probability per valid location of spawning an enemy.
+Lower values create less cluttered, more strategic encounters.
+
+Examples:
+    - 0.0083: Very sparse enemies (easy difficulty)
+    - 0.0167: Sparse enemies (default/medium difficulty)
+    - 0.025: Moderate enemies (hard difficulty)
+    - 0.0333: Dense enemies (expert difficulty)
+"""
+
+ENEMY_MIN_SEPARATION = 20
+"""Int: Minimum distance between enemy spawns (in tiles)
+
+Prevents enemies from clustering too close together, ensuring
+balanced difficulty and giving players breathing room.
+
+Range: 16-32 tiles recommended
+"""
+
 # Pickup Spawning
 DEFAULT_COIN_DENSITY = 0.02
-"""Float: Density of coin spawns (0.0-1.0)
+"""Float: Density of coin spawns (0.0-1.0) - DEPRECATED
 
 Probability per valid location of spawning a coin.
 Higher values create more collectibles and higher scores.
+
+NOTE: This is deprecated in favor of DEFAULT_COIN_COUNT_RANGE for count-based spawning.
 
 Examples:
     - 0.02: Sparse coins (challenging collection)
     - 0.04: Moderate coins (default)
     - 0.08: Dense coins (easy collection)
+"""
+
+DEFAULT_COIN_COUNT_RANGE = (10, 20)
+"""Tuple[int, int]: Range of coins to spawn per level (min, max)
+
+The actual coin count is randomly selected within this range.
+This provides more predictable coin counts compared to probability-based spawning.
+
+Examples:
+    - (10, 15): Easy difficulty (lower collection requirement)
+    - (14, 21): Medium difficulty (moderate collection requirement)
+    - (19, 28): Hard difficulty (higher collection requirement)
+    - (35, 48): Expert difficulty (very high collection requirement)
 """
 
 DEFAULT_HEALTH_DENSITY = 0.006
