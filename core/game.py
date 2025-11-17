@@ -48,6 +48,7 @@ from user_settings import get_user_settings
 from entities.exit_gate import ExitGate
 from entities.collectibles import Coin, HealthPickup, LifePickup, Powerup
 from entities.ability_orb import AbilityOrb
+from core.combat_system import DamageNumberManager
 from entities.player_entity import PlayerController
 
 from states.base import GameState
@@ -425,7 +426,8 @@ class Game:
         self.ability_orb_collected = False
         self.ability_unlocked = None  # Set to ability name when unlocked
 
-
+        # Combat system
+        self.damage_numbers = DamageNumberManager()
 
         # Meta systems
         self.user_settings = get_user_settings()
@@ -650,6 +652,20 @@ class Game:
             self.player.rect.move(-cam.x, -cam.y),
             border_radius=4,
         )
+
+        # Draw attack hitbox if attacking
+        if self.modifiers.show_hitboxes and hasattr(self.player, 'get_attack_hitbox'):
+            attack_hitbox = self.player.get_attack_hitbox()
+            if attack_hitbox:
+                pygame.draw.rect(
+                    self.play_area,
+                    (255, 100, 0),  # Orange for attack hitbox
+                    attack_hitbox.move(-cam.x, -cam.y),
+                    2,
+                )
+
+        # Draw damage numbers
+        self.damage_numbers.draw(self.play_area, (cam.x, cam.y))
 
         # Draw hitboxes if enabled
         if self.modifiers.show_hitboxes:
