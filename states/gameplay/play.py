@@ -138,7 +138,24 @@ class PlayState(GameState):
         if not hazards_disabled:
             for h in self.game.hazards:
                 if player.rect.colliderect(h):
-                    if player.take_damage(1):
+                    # Import combat system for knockback
+                    from core.combat_system import calculate_knockback
+
+                    # Take damage
+                    damage_dealt = player.take_damage(1)
+
+                    if damage_dealt:
+                        # Apply knockback from hazard
+                        hazard_center = (h.centerx, h.centery)
+                        player_center = (player.rect.centerx, player.rect.centery)
+                        kb_vx, kb_vy = calculate_knockback(
+                            hazard_center,
+                            player_center,
+                            250  # Knockback force for hazards
+                        )
+                        player.vx = kb_vx
+                        player.vy = kb_vy
+
                         if player.health <= 0:
                             self.game.lives -= 1
                             if self.game.lives <= 0:
