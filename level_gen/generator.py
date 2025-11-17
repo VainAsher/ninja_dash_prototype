@@ -607,9 +607,9 @@ def generate_level(
         tiles=tiles
     )
 
-    # Add ability-aware coin challenges
+    # Add ability-aware coin challenges (with collision checking)
     if cfg.enable_ability_challenges:
-        add_ability_challenges(world, coins, rng, abilities)
+        add_ability_challenges(world, coins, rng, abilities, hazards, tiles)
 
     # Generate Ability Orbs (RARE - 0.3% spawn rate)
     ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.ability_orb_spawn_rate)

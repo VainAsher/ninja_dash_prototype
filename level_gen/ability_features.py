@@ -24,7 +24,9 @@ def add_ability_challenges(
     world: List[List[int]],
     coins: List[pygame.Rect],
     rng: random.Random,
-    abilities: List[str]
+    abilities: List[str],
+    hazards: List[pygame.Rect] = None,
+    tiles: List[pygame.Rect] = None
 ) -> None:
     """
     Add optional coin patterns that reward specific abilities.
@@ -34,9 +36,24 @@ def add_ability_challenges(
         coins: List of coin rectangles (will be modified in-place)
         rng: Random number generator
         abilities: List of enabled ability strings
+        hazards: List of hazard rectangles to avoid collisions (optional)
+        tiles: List of solid tile rectangles to avoid collisions (optional)
     """
     if not abilities:
         return
+
+    hazards = hazards or []
+    tiles = tiles or []
+
+    def is_valid_coin_position(coin_rect: pygame.Rect) -> bool:
+        """Check if coin position doesn't collide with hazards or tiles."""
+        # Check collision with hazards
+        if any(coin_rect.colliderect(h) for h in hazards):
+            return False
+        # Check collision with solid tiles
+        if any(coin_rect.colliderect(t) for t in tiles):
+            return False
+        return True
 
     # Double Jump: vertical coin arcs
     if "DOUBLE_JUMP" in abilities:
@@ -49,7 +66,9 @@ def add_ability_challenges(
                     cx = (tx + i) * TILE_SIZE + TILE_SIZE // 4
                     cy = (ty - i // 2) * TILE_SIZE + TILE_SIZE // 4
                     if 0 < ty - i // 2 < WORLD_H:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
+                        coin_rect = pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2)
+                        if is_valid_coin_position(coin_rect):
+                            coins.append(coin_rect)
 
     # Dash: horizontal coin lines
     if "DASH" in abilities:
@@ -62,7 +81,9 @@ def add_ability_challenges(
                     cx = (tx + i * 2) * TILE_SIZE + TILE_SIZE // 4
                     cy = ty * TILE_SIZE + TILE_SIZE // 4
                     if tx + i * 2 < WORLD_W:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
+                        coin_rect = pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2)
+                        if is_valid_coin_position(coin_rect):
+                            coins.append(coin_rect)
 
     # Wall Jump: vertical coin ladders
     if "WALL_JUMP" in abilities:
@@ -75,7 +96,9 @@ def add_ability_challenges(
                     cx = tx * TILE_SIZE + TILE_SIZE // 4
                     cy = (ty - i * 2) * TILE_SIZE + TILE_SIZE // 4
                     if 2 < ty - i * 2 < WORLD_H:
-                        coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
+                        coin_rect = pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2)
+                        if is_valid_coin_position(coin_rect):
+                            coins.append(coin_rect)
 
 
 def add_ability_subrooms(
