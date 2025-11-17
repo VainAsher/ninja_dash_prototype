@@ -291,7 +291,11 @@ class EntityPlacer:
                 if self.rng.random() < enemy_density:
                     # Convert tile to pixel coordinates (centered on platform)
                     ex = tx * TILE_SIZE
-                    ey = ty * TILE_SIZE  # Spawn on the platform
+                    # Spawn enemy so its bottom is slightly embedded in platform
+                    # This ensures collision detection triggers on first frame
+                    # Platform top is at (ty + 1) * TILE_SIZE
+                    # Enemy bottom should be at platform_top + 2 for guaranteed overlap
+                    ey = (ty + 1) * TILE_SIZE - TILE_SIZE + 2
                     enemy_positions.append((ex, ey))
 
         return enemy_positions
