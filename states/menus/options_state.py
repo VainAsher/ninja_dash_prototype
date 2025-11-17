@@ -195,7 +195,9 @@ class OptionsState(GameState):
             if event.key == pygame.K_ESCAPE:
                 # Save and return to previous state
                 self.modifiers.save_preferences()
-                self.game.change_state("pause")
+                # Return to wherever we came from (menu, pause, etc.)
+                return_state = self.game.previous_state_name or "menu"
+                self.game.change_state(return_state)
             elif event.key == pygame.K_LEFT:
                 # Navigate tabs or difficulty depending on current tab
                 if self.current_tab == self.TAB_GAMEPLAY:

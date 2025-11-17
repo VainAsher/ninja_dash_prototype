@@ -443,6 +443,7 @@ class Game:
         # State machine
         self.states: Dict[str, GameState] = {}
         self.current_state: GameState | None = None
+        self.previous_state_name: str | None = None
         self._register_states()
         self.change_state("menu")
 
@@ -468,7 +469,13 @@ class Game:
         }
 
     def change_state(self, name: str) -> None:
+        # Track previous state for navigation
         if self.current_state:
+            # Get the current state name by finding it in the states dict
+            for state_name, state_obj in self.states.items():
+                if state_obj == self.current_state:
+                    self.previous_state_name = state_name
+                    break
             self.current_state.exit()
         self.current_state = self.states[name]
         self.current_state.enter()
