@@ -21,7 +21,11 @@ class MenuState(GameState):
         def add(label: str, cb):
             self.buttons.append(Button(label, cb))
 
-        add("▶ Start Game", self.game.start_new_run)
+        # Show Continue button if save exists
+        if self.game.unlock_mgr.has_save():
+            add("▶ Continue", self.game.continue_game)
+
+        add("🆕 New Game", self.game.start_new_game)
         add("🎲 Custom Seed Run", lambda: self.game.change_state("seed_entry"))
         add("🏆 High Scores", lambda: self.game.change_state("highscores"))
         add("⭐ Unlocks", lambda: self.game.change_state("unlocks"))

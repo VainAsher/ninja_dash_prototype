@@ -476,6 +476,14 @@ class Game:
     # ---------------- Core operations ----------------
 
     def quit(self) -> None:
+        # Save game state before quitting (unless already game over)
+        if self.lives > 0:
+            self.unlock_mgr.save_game_state(
+                self.level_index,
+                self.lives,
+                self.total_score,
+                self.game_time
+            )
         self.running = False
 
     def _sync_features_with_unlocks(self) -> None:
@@ -563,12 +571,54 @@ class Game:
         self.game_time = 0.0
 
     def start_new_run(self) -> None:
+        """Start a completely new run (legacy method - use start_new_game() or continue_game())."""
         self.level_index = 1
         self.total_score = 0
         self.lives = PLAYER_LIVES
         self.game_time = 0.0
         self.build_level()
         self.change_state("play")
+
+    def start_new_game(self) -> None:
+        """Start a new game from scratch (deletes save)."""
+        # Delete save file and reset unlock manager
+        self.unlock_mgr.delete_save()
+        self.unlock_mgr.reset_to_defaults()
+        self._sync_features_with_unlocks()
+
+        # Reset game state
+        self.level_index = 1
+        self.total_score = 0
+        self.lives = PLAYER_LIVES
+        self.game_time = 0.0
+        self.seed = None
+
+        # Start playing
+        self.build_level()
+        self.change_state("play")
+        print("🆕 New Game started!")
+
+    def continue_game(self) -> None:
+        """Continue from last save."""
+        if not self.unlock_mgr.has_save():
+            print("⚠️  No save file found, starting new game")
+            self.start_new_game()
+            return
+
+        # Load saved game state
+        saved_state = self.unlock_mgr.load_game_state()
+        self._sync_features_with_unlocks()
+
+        self.level_index = saved_state["level_index"]
+        self.lives = saved_state["lives"]
+        self.total_score = saved_state["total_score"]
+        self.game_time = saved_state["game_time"]
+        self.seed = None  # Will generate new level seed
+
+        # Build level and start playing
+        self.build_level()
+        self.change_state("play")
+        print(f"📂 Game loaded: Level {self.level_index}, {self.lives} lives, {self.total_score} score")
 
     def restart_level(self) -> None:
         self.build_level()
@@ -588,14 +638,21 @@ class Game:
         cfg = DIFFICULTY_CONFIG[self.difficulty]
         clear_bonus = int(1000 * cfg.get("multiplier", 1.0))
         self.total_score += clear_bonus
+
+        # Auto-save on level completion (checkpoint)
+        self.unlock_mgr.save_game_state(
+            self.level_index,
+            self.lives,
+            self.total_score,
+            self.game_time
+        )
+
         self.next_level()
 
     def on_game_over(self) -> None:
-        if qualifies_for_highscore(self.total_score):
-            add_highscore("Player", self.total_score, self.level_index, self.difficulty)
-        self.change_state("gameover")
+        # Delete save file on game over (death consequences)
+        self.unlock_mgr.delete_save()
 
-    def on_game_over(self) -> None:
         if qualifies_for_highscore(self.total_score):
             self.pending_score = self.total_score
             self.pending_level = self.level_index
