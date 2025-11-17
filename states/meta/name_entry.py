@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_SMALL, FONT_BIG
-from .base import GameState
+from ..base import GameState
 from highscores import add_highscore
 
 

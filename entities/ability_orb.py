@@ -131,25 +131,52 @@ class AbilityOrb:
         # Mark as collected
         self.collected = True
 
-        # Notify unlock manager
+        # Notify unlock manager and check for new unlocks
         unlock_mgr = getattr(game, 'unlock_mgr', None)
+        newly_unlocked = []
         if unlock_mgr:
-            unlock_mgr.add_ability_orb()
+            newly_unlocked = unlock_mgr.add_ability_orb()
 
         # Trigger collection effects
-        self._trigger_collection_effects(game)
+        self._trigger_collection_effects(game, newly_unlocked)
 
         return True
 
-    def _trigger_collection_effects(self, game: Any) -> None:
+    def _trigger_collection_effects(self, game: Any, newly_unlocked: list) -> None:
         """Trigger visual/audio effects on collection."""
         # Store collection notification for UI to display
         if hasattr(game, 'ability_orb_collected'):
             game.ability_orb_collected = True
 
-        # TODO: Play collection sound
-        # TODO: Trigger screen flash
-        # TODO: Spawn particle burst
+        # Store ability unlock notifications
+        if newly_unlocked and hasattr(game, 'ability_unlocked'):
+            # Store the first unlocked ability (most common case)
+            # If multiple unlocks happen at once, just show the first one
+            game.ability_unlocked = newly_unlocked[0]
+
+        # Spawn particle burst on collection
+        self._spawn_collection_burst()
+
+        # TODO: Play collection sound (hook for audio system)
+        # Sound hook: play "ability_orb_collect" sound effect
+
+    def _spawn_collection_burst(self) -> None:
+        """Spawn a burst of particles when collected."""
+        import random
+
+        # Create a large burst of particles
+        num_particles = 20
+        for _ in range(num_particles):
+            particle = {
+                'angle': random.uniform(0, 360),
+                'radius': random.uniform(5, 15),
+                'speed': random.uniform(180, 300),  # Faster particles
+                'life': random.uniform(0.3, 0.8),
+                'max_life': 0.8,
+                'size': random.randint(3, 6),
+                'color': random.choice(self.colors),
+            }
+            self.particles.append(particle)
 
     def draw(self, surface: pygame.Surface, camera_rect: pygame.Rect) -> None:
         """

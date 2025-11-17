@@ -7,7 +7,7 @@ import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_BIG, FONT_SMALL
 from highscores import get_highscores
-from .base import GameState
+from ..base import GameState
 
 
 class HighscoresState(GameState):

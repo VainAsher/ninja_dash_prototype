@@ -51,18 +51,18 @@ from entities.ability_orb import AbilityOrb
 from entities.player_entity import PlayerController
 
 from states.base import GameState
-from states.menu import MenuState
-from states.play import PlayState
-from states.pause import PauseState
-from states.gameover import GameOverState
-from states.highscores import HighscoresState
-from states.unlocks import UnlocksState
-from states.settings_state import SettingsState
-from states.help_state import HelpState
-from states.name_entry import NameEntryState
-from states.seed_entry import SeedEntryState
-from states.controls_viewer import ControlsViewerState
-from states.options_state import OptionsState
+from states.gameplay.play import PlayState
+from states.gameplay.pause import PauseState
+from states.gameplay.gameover import GameOverState
+from states.menus.menu import MenuState
+from states.menus.options_state import OptionsState
+from states.menus.help_state import HelpState
+from states.menus.controls_viewer import ControlsViewerState
+from states.menus.settings_state import SettingsState
+from states.meta.highscores import HighscoresState
+from states.meta.unlocks import UnlocksState
+from states.meta.name_entry import NameEntryState
+from states.meta.seed_entry import SeedEntryState
 
 from ui.hud_components import (
     ScoreSection,

@@ -4,15 +4,27 @@ from __future__ import annotations
 import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT_BIG, FONT_SMALL
-from .base import GameState
+from ui import Button
+from ..base import GameState
 
 
 class HelpState(GameState):
     """More detailed help page covering controls, goals, abilities, and meta."""
 
+    def __init__(self, game) -> None:
+        super().__init__(game)
+        self.buttons: list[Button] = []
+
+    def enter(self) -> None:
+        self.buttons.clear()
+        self.buttons.append(Button("🎮 View Controls", lambda: self.game.change_state("controls")))
+
     def handle_event(self, event: pygame.event.EventType) -> None:
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.game.change_state("menu")
+            return
+        for b in self.buttons:
+            b.handle_event(event)
 
     def update(self, dt: float) -> None:
         pass
@@ -66,10 +78,14 @@ class HelpState(GameState):
                 y += 22
             y += 10
 
-        # Add note about controls viewer
-        controls_note = FONT_SMALL.render("Press F1 or check Pause menu for full controls viewer", True, (150, 200, 255))
-        controls_note_rect = controls_note.get_rect(center=(LOGICAL_W // 2, LOGICAL_H - 60))
-        surface.blit(controls_note, controls_note_rect)
+        # Draw Controls button
+        btn_w = 240
+        btn_h = 40
+        btn_x = (LOGICAL_W - btn_w) // 2
+        btn_y = LOGICAL_H - 100
+        if self.buttons:
+            self.buttons[0].layout(btn_x, btn_y, btn_w, btn_h)
+            self.buttons[0].draw(surface)
 
         inst = FONT_SMALL.render("ESC: back to menu", True, COLOR_TEXT)
         inst_rect = inst.get_rect(

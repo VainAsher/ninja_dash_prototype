@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_SMALL, FONT_BIG, DEFAULT_SEED
-from .base import GameState
+from ..base import GameState
 
 
 class SeedEntryState(GameState):
