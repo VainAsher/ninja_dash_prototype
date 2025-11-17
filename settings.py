@@ -152,7 +152,7 @@ DASH_SPEED_MULT = 1.8  # Speed multiplier when dashing (1.8x normal speed)
 FAST_FALL_MULT = 2.4
 MAX_FALL_SPEED = 22.0
 
-CROUCH_SPEED_MULT = 0.95
+CROUCH_SPEED_MULT = 0.75  # 25% slower movement when crouched
 CROUCH_JUMP_MULT = 1.2
 
 # ================= SHADOW STEP (SMOKE BOMB) ABILITY =================

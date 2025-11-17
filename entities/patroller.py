@@ -231,6 +231,11 @@ class Patroller(Enemy):
         chase_range_x = TILE_SIZE * 5  # 5 tiles horizontal range
         chase_range_y = TILE_SIZE * 3  # 3 tiles vertical range
 
+        # Reduce detection range when player is crouched (stealth benefit)
+        if hasattr(player, 'crouching') and player.crouching:
+            chase_range_x *= 0.5  # 50% reduced horizontal detection
+            chase_range_y *= 0.5  # 50% reduced vertical detection
+
         return dx < chase_range_x and dy < chase_range_y
 
     def _turn_around(self) -> None:
