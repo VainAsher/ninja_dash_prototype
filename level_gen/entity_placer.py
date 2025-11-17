@@ -291,7 +291,7 @@ class EntityPlacer:
                 if self.rng.random() < enemy_density:
                     # Convert tile to pixel coordinates (centered on platform)
                     ex = tx * TILE_SIZE
-                    ey = (ty - 1) * TILE_SIZE  # Spawn one tile above the platform
+                    ey = ty * TILE_SIZE  # Spawn on the platform
                     enemy_positions.append((ex, ey))
 
         return enemy_positions
