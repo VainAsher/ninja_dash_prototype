@@ -364,12 +364,12 @@ class Enemy:
                     # Get damage numbers manager if available
                     damage_numbers = getattr(game, 'damage_numbers', None)
 
-                    # Deal damage with knockback (200 force for enemy contact)
+                    # Deal damage with knockback (150 force for gentle arc)
                     damage_dealt = deal_damage(
                         self,
                         player,
                         self.damage,
-                        knockback_force=200,
+                        knockback_force=150,  # Reduced for gentle arc (was 200)
                         damage_numbers=damage_numbers
                     )
 

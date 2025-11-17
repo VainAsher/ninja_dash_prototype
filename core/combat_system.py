@@ -143,6 +143,9 @@ def calculate_knockback(
     """
     Calculate knockback velocity from an attack.
 
+    Creates a gentle, graceful arc away from the damage source with
+    primarily horizontal knockback and a slight upward component.
+
     Args:
         attacker_pos: (x, y) position of attacker
         target_pos: (x, y) position of target
@@ -159,16 +162,25 @@ def calculate_knockback(
     distance = math.sqrt(dx * dx + dy * dy)
     if distance < 1:
         # Default to horizontal knockback if overlapping
-        return (knockback_force if dx >= 0 else -knockback_force, -knockback_force * 0.5)
+        return (knockback_force * 0.6 if dx >= 0 else -knockback_force * 0.6, -knockback_force * 0.3)
 
     # Normalize direction
     nx = dx / distance
     ny = dy / distance
 
-    # Apply knockback force
-    # Add slight upward component for better feel
-    vx = nx * knockback_force
-    vy = ny * knockback_force - knockback_force * 0.1  # Reduced upward boost (was 0.3)
+    # Apply knockback force with gentle arc
+    # Focus on horizontal knockback, with controlled vertical component
+    vx = nx * knockback_force * 0.7  # Reduced horizontal force for gentler feel
+
+    # Vertical component: bias toward slight upward arc, but cap extremes
+    # If target is above attacker (ny < 0), limit upward force
+    # If target is below attacker (ny > 0), convert to slight upward
+    if ny < 0:  # Target above attacker
+        # Already going up, limit the upward force to prevent extreme launches
+        vy = max(ny * knockback_force * 0.3, -300)  # Cap upward velocity at -300
+    else:  # Target at same level or below attacker
+        # Convert downward into gentle upward arc
+        vy = -knockback_force * 0.2  # Small upward arc
 
     return (vx, vy)
 

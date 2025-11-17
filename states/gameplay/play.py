@@ -101,6 +101,15 @@ class PlayState(GameState):
             self.game.enemy_manager.update(dt, self.game.world, player, self.game)
             self.game.enemy_manager.remove_dead()
 
+            # Check if player died from enemy damage
+            if player.health <= 0:
+                self.game.lives -= 1
+                if self.game.lives <= 0:
+                    self.game.on_game_over()
+                else:
+                    self.game.restart_level()
+                return
+
         cfg = DIFFICULTY_CONFIG[self.game.difficulty]
         multiplier = cfg.get("multiplier", 1.0)
         coin_value = int(10 * multiplier)  # kept for future scaling if needed
@@ -151,7 +160,7 @@ class PlayState(GameState):
                         kb_vx, kb_vy = calculate_knockback(
                             hazard_center,
                             player_center,
-                            250  # Knockback force for hazards
+                            180  # Reduced knockback force for gentle arc (was 250)
                         )
                         player.vx = kb_vx
                         player.vy = kb_vy
