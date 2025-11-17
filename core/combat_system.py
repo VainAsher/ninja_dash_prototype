@@ -168,7 +168,7 @@ def calculate_knockback(
     # Apply knockback force
     # Add slight upward component for better feel
     vx = nx * knockback_force
-    vy = ny * knockback_force - knockback_force * 0.3  # Upward boost
+    vy = ny * knockback_force - knockback_force * 0.1  # Reduced upward boost (was 0.3)
 
     return (vx, vy)
 
