@@ -667,6 +667,78 @@ class Game:
             border_radius=4,
         )
 
+        # Draw player facing direction indicator (similar to enemies)
+        player_screen_rect = self.player.rect.move(-cam.x, -cam.y)
+        if self.player.facing == 1:
+            # Right facing triangle
+            points = [
+                (player_screen_rect.right - 5, player_screen_rect.top + 5),
+                (player_screen_rect.right - 5, player_screen_rect.top + 15),
+                (player_screen_rect.right - 2, player_screen_rect.top + 10)
+            ]
+        else:
+            # Left facing triangle
+            points = [
+                (player_screen_rect.left + 5, player_screen_rect.top + 5),
+                (player_screen_rect.left + 5, player_screen_rect.top + 15),
+                (player_screen_rect.left + 2, player_screen_rect.top + 10)
+            ]
+        pygame.draw.polygon(self.play_area, (255, 255, 255), points)
+
+        # Draw sword on player
+        # Sword is a small rectangle extending from player's side
+        sword_length = 8
+        sword_width = 3
+        if self.player.facing == 1:
+            # Right facing sword
+            sword_rect = pygame.Rect(
+                player_screen_rect.right,
+                player_screen_rect.centery - sword_width // 2,
+                sword_length,
+                sword_width
+            )
+        else:
+            # Left facing sword
+            sword_rect = pygame.Rect(
+                player_screen_rect.left - sword_length,
+                player_screen_rect.centery - sword_width // 2,
+                sword_length,
+                sword_width
+            )
+        pygame.draw.rect(self.play_area, (200, 200, 200), sword_rect)  # Silver sword
+
+        # Draw sword arc animation during attack
+        if self.player.is_attacking:
+            attack_hitbox = self.player.get_attack_hitbox()
+            if attack_hitbox:
+                # Draw arc to show attack range
+                attack_screen = attack_hitbox.move(-cam.x, -cam.y)
+                # Draw semi-transparent arc
+                arc_surface = pygame.Surface((attack_screen.width, attack_screen.height), pygame.SRCALPHA)
+
+                if self.player.facing == 1:
+                    # Right facing arc
+                    pygame.draw.arc(
+                        arc_surface,
+                        (255, 200, 100, 180),  # Orange-yellow with alpha
+                        arc_surface.get_rect(),
+                        -math.pi/3,  # Start angle
+                        math.pi/3,   # End angle
+                        3
+                    )
+                else:
+                    # Left facing arc
+                    pygame.draw.arc(
+                        arc_surface,
+                        (255, 200, 100, 180),  # Orange-yellow with alpha
+                        arc_surface.get_rect(),
+                        2*math.pi/3,  # Start angle
+                        4*math.pi/3,  # End angle
+                        3
+                    )
+
+                self.play_area.blit(arc_surface, (attack_screen.x, attack_screen.y))
+
         # Draw attack hitbox if attacking
         if self.modifiers.show_hitboxes and hasattr(self.player, 'get_attack_hitbox'):
             attack_hitbox = self.player.get_attack_hitbox()
