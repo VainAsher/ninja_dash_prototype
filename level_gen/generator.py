@@ -593,21 +593,23 @@ def generate_level(
     # Generate hazards
     hazards = generate_hazards(world, rng, rate=cfg.hazard_rate)
 
-    # Generate pickups
+    # Generate power-ups BEFORE coins so coins can check for nearby magnet powerups
+    powerups = generate_powerups(world, rng, density=cfg.powerup_density)
+
+    # Generate pickups (coins can now check for nearby magnet powerups)
     coins, healths, lives = generate_coins_and_pickups(
         world, rng,
         coin_density=cfg.coin_density,
         health_density=cfg.health_density,
         lives_per_level=cfg.lives_per_level,
-        hazards=hazards
+        hazards=hazards,
+        powerups=powerups,
+        tiles=tiles
     )
 
     # Add ability-aware coin challenges
     if cfg.enable_ability_challenges:
         add_ability_challenges(world, coins, rng, abilities)
-
-    # Generate power-ups
-    powerups = generate_powerups(world, rng, density=cfg.powerup_density)
 
     # Generate Ability Orbs (RARE - 0.3% spawn rate)
     ability_orbs = generate_ability_orbs(world, rng, spawn_rate=cfg.ability_orb_spawn_rate)

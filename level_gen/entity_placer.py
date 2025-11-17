@@ -5,12 +5,14 @@ Separated from generator.py for better separation of concerns.
 
 import random
 import pygame
+import math
 from typing import List, Tuple, Set, Optional, Dict, Any
 
 from settings import (
     TILE_SIZE,
     WORLD_W, WORLD_H,
     POWERUP_TYPES,
+    POWERUP_MAGNET_RADIUS,
 )
 
 from .constants import (
@@ -41,6 +43,32 @@ class EntityPlacer:
         self.world = world
         self.rng = rng
 
+    def _has_nearby_magnet(
+        self,
+        position: Tuple[int, int],
+        magnet_positions: List[Tuple[int, int]],
+        radius: float
+    ) -> bool:
+        """
+        Check if there's a magnet powerup within radius of the given position.
+
+        Args:
+            position: (x, y) position to check
+            magnet_positions: List of (x, y) positions of magnet powerups
+            radius: Search radius in pixels
+
+        Returns:
+            True if a magnet powerup is within radius
+        """
+        px, py = position
+        for mx, my in magnet_positions:
+            dx = px - mx
+            dy = py - my
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist <= radius:
+                return True
+        return False
+
     def generate_hazards(self, rate: float = DEFAULT_HAZARD_RATE) -> List[pygame.Rect]:
         """
         Generate spike hazards on platforms.
@@ -66,21 +94,27 @@ class EntityPlacer:
         coin_density: float = DEFAULT_COIN_DENSITY,
         health_density: float = DEFAULT_HEALTH_DENSITY,
         lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
-        hazards: Optional[List[pygame.Rect]] = None
+        hazards: Optional[List[pygame.Rect]] = None,
+        powerups: Optional[List[Dict[str, Any]]] = None,
+        tiles: Optional[List[pygame.Rect]] = None
     ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
         """
-        Generate coins, health, and lives.
+        Generate coins, health, and lives with collision detection.
 
         Args:
             coin_density: Spawn rate for coins
             health_density: Spawn rate for health pickups
             lives_per_level: Number of extra lives to spawn
             hazards: List of hazard rectangles to avoid
+            powerups: List of powerup dictionaries (to check for nearby magnet powerups)
+            tiles: List of solid tile rectangles (to check for collision)
 
         Returns:
             Tuple of (coins, healths, lives) - lists of rectangles
         """
         hazards = hazards or []
+        powerups = powerups or []
+        tiles = tiles or []
         coins = []
         healths = []
         lives = []
@@ -95,6 +129,12 @@ class EntityPlacer:
                 hx, hy = pixel_to_tile(center_x, center_y)
                 hazard_tiles.add((hx, hy))
 
+        # Extract magnet powerup positions for proximity checks
+        magnet_positions = []
+        for powerup in powerups:
+            if powerup.get('type') == 'magnet':
+                magnet_positions.append(powerup['rect'].center)
+
         # Generate coins and health pickups
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
@@ -106,7 +146,26 @@ class EntityPlacer:
                 if self.rng.random() < coin_density:
                     cx = tx * TILE_SIZE + TILE_SIZE // 4
                     cy = ty * TILE_SIZE + TILE_SIZE // 4
-                    coins.append(pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2))
+                    coin_rect = pygame.Rect(cx, cy, TILE_SIZE // 2, TILE_SIZE // 2)
+
+                    # Check for collision with hazards or solid tiles
+                    has_collision = False
+                    if any(coin_rect.colliderect(h) for h in hazards):
+                        has_collision = True
+                    if any(coin_rect.colliderect(t) for t in tiles):
+                        has_collision = True
+
+                    # If collision detected, only allow if there's a nearby magnet powerup
+                    if has_collision:
+                        has_nearby_magnet = self._has_nearby_magnet(
+                            coin_rect.center,
+                            magnet_positions,
+                            POWERUP_MAGNET_RADIUS
+                        )
+                        if not has_nearby_magnet:
+                            continue  # Skip this coin
+
+                    coins.append(coin_rect)
                 elif self.rng.random() < health_density:
                     hx = tx * TILE_SIZE + TILE_SIZE // 4
                     hy = ty * TILE_SIZE + TILE_SIZE // 4
@@ -214,11 +273,13 @@ def generate_coins_and_pickups(
     coin_density: float = DEFAULT_COIN_DENSITY,
     health_density: float = DEFAULT_HEALTH_DENSITY,
     lives_per_level: int = DEFAULT_LIVES_PER_LEVEL,
-    hazards: Optional[List[pygame.Rect]] = None
+    hazards: Optional[List[pygame.Rect]] = None,
+    powerups: Optional[List[Dict[str, Any]]] = None,
+    tiles: Optional[List[pygame.Rect]] = None
 ) -> Tuple[List[pygame.Rect], List[pygame.Rect], List[pygame.Rect]]:
-    """Generate coins, health, and lives."""
+    """Generate coins, health, and lives with collision detection."""
     placer = EntityPlacer(world, rng)
-    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards)
+    return placer.generate_coins_and_pickups(coin_density, health_density, lives_per_level, hazards, powerups, tiles)
 
 
 def generate_powerups(world: List[List[int]], rng: random.Random, density: float = DEFAULT_POWERUP_DENSITY) -> List[Dict[str, Any]]:
