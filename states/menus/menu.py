@@ -30,7 +30,6 @@ class MenuState(GameState):
         add("🏆 High Scores", lambda: self.game.change_state("highscores"))
         add("⭐ Unlocks", lambda: self.game.change_state("unlocks"))
         add("⚙ Options", lambda: self.game.change_state("options"))
-        add("⚙ Settings", lambda: self.game.change_state("settings"))
         add("❓ Help", lambda: self.game.change_state("help"))
         add("✕ Quit", self.game.quit)
 

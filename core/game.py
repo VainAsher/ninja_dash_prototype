@@ -58,9 +58,9 @@ from states.gameplay.pause import PauseState
 from states.gameplay.gameover import GameOverState
 from states.menus.menu import MenuState
 from states.menus.options_state import OptionsState
+from states.menus.debug_menu import DebugMenuState
 from states.menus.help_state import HelpState
 from states.menus.controls_viewer import ControlsViewerState
-from states.menus.settings_state import SettingsState
 from states.meta.highscores import HighscoresState
 from states.meta.unlocks import UnlocksState
 from states.meta.name_entry import NameEntryState
@@ -459,8 +459,8 @@ class Game:
             "gameover": GameOverState(self),
             "highscores": HighscoresState(self),
             "unlocks": UnlocksState(self),
-            "settings": SettingsState(self),
             "options": OptionsState(self),
+            "debug": DebugMenuState(self),
             "help": HelpState(self),
             "name_entry": NameEntryState(self),
             "seed_entry": SeedEntryState(self),

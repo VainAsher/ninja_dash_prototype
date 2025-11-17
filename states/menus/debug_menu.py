@@ -1,27 +1,28 @@
 """
-Options State
+Debug Menu State
 
-Player-focused options menu with tabbed categories:
-- Gameplay (Difficulty selection and gameplay settings)
-- Abilities (Enable/Disable individual abilities for accessibility)
+Debug and testing features for developers:
+- Gameplay Assists (God Mode, Infinite Resources, Flight, Time Scale)
+- Visual Options (Debug Overlay, Hitboxes, Grid, FPS)
+- Level Options (Reload, Hazards)
 
-All settings are saved to user preferences and persist between sessions.
-Debug/testing options have been moved to the Debug Menu.
+This menu is separate from player options to clearly distinguish
+between testing tools and player-facing features.
 """
 
 import pygame
 from typing import Dict, List, Tuple, Optional, Any
 from ..base import GameState
 from gameplay_modifiers import get_modifiers
-from settings import DIFFICULTY_CONFIG
 
 
-class OptionsState(GameState):
-    """Player-focused options menu with gameplay and ability settings."""
+class DebugMenuState(GameState):
+    """Debug menu with testing and development tools."""
 
     # Tab identifiers
     TAB_GAMEPLAY = "gameplay"
-    TAB_ABILITIES = "abilities"
+    TAB_VISUAL = "visual"
+    TAB_LEVEL = "level"
 
     def __init__(self, game):
         super().__init__(game)
@@ -29,13 +30,11 @@ class OptionsState(GameState):
 
         # Tab management
         self.tabs = [
-            (self.TAB_GAMEPLAY, "Gameplay"),
-            (self.TAB_ABILITIES, "Abilities"),
+            (self.TAB_GAMEPLAY, "Gameplay Assists"),
+            (self.TAB_VISUAL, "Visual Debug"),
+            (self.TAB_LEVEL, "Level Tools"),
         ]
         self.current_tab = self.TAB_GAMEPLAY
-
-        # Difficulty management
-        self._difficulty_keys = list(DIFFICULTY_CONFIG.keys())
 
         # UI layout
         self.tab_height = 50
@@ -52,21 +51,21 @@ class OptionsState(GameState):
         self.desc_font = pygame.font.SysFont("consolas", 14)
 
         # Colors
-        self.bg_color = (15, 15, 25)
-        self.tab_bg = (30, 30, 45)
-        self.tab_active = (50, 50, 80)
-        self.tab_hover = (40, 40, 65)
-        self.item_bg = (25, 25, 40)
-        self.item_hover = (35, 35, 55)
-        self.text_color = (230, 230, 255)
-        self.text_dim = (150, 150, 170)
-        self.checkbox_bg = (40, 40, 60)
+        self.bg_color = (25, 15, 15)  # Slightly reddish to indicate debug
+        self.tab_bg = (40, 25, 25)
+        self.tab_active = (70, 40, 40)
+        self.tab_hover = (55, 30, 30)
+        self.item_bg = (35, 20, 20)
+        self.item_hover = (50, 30, 30)
+        self.text_color = (255, 220, 220)
+        self.text_dim = (180, 140, 140)
+        self.checkbox_bg = (50, 30, 30)
         self.checkbox_checked = (100, 200, 100)
         self.checkbox_unchecked = (200, 100, 100)
-        self.slider_bg = (40, 40, 60)
-        self.slider_fill = (100, 150, 255)
-        self.button_bg = (50, 100, 150)
-        self.button_hover = (70, 120, 180)
+        self.slider_bg = (50, 30, 30)
+        self.slider_fill = (255, 150, 100)
+        self.button_bg = (150, 70, 50)
+        self.button_hover = (180, 90, 70)
         self.button_text = (255, 255, 255)
 
         # Mouse state
@@ -76,112 +75,126 @@ class OptionsState(GameState):
         # Build option items for each tab
         self.option_items = self._build_option_items()
 
-    def _cycle_difficulty(self, direction: int) -> None:
-        """Cycle through difficulty options."""
-        if not self._difficulty_keys:
-            return
-        cur = self.game.difficulty
-        if cur not in self._difficulty_keys:
-            self.game.difficulty = self._difficulty_keys[0]
-            return
-        idx = self._difficulty_keys.index(cur)
-        idx = (idx + direction) % len(self._difficulty_keys)
-        self.game.difficulty = self._difficulty_keys[idx]
-
     def _build_option_items(self) -> Dict[str, List[Dict[str, Any]]]:
         """Build the UI items for each tab."""
         return {
             self.TAB_GAMEPLAY: [
                 {
-                    'type': 'difficulty',
-                    'label': 'Difficulty',
-                    'description': 'Select game difficulty (affects new runs only)',
-                    'getter': lambda: self.game.difficulty,
-                    'cycle_left': lambda: self._cycle_difficulty(-1),
-                    'cycle_right': lambda: self._cycle_difficulty(1),
-                },
-            ],
-            self.TAB_ABILITIES: [
-                {
                     'type': 'checkbox',
-                    'label': 'Double Jump',
-                    'description': 'Jump again while in the air',
-                    'key': 'double_jump',
-                    'getter': lambda: self.modifiers.ability_states.get('double_jump', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('double_jump', v),
+                    'label': 'God Mode',
+                    'description': 'Invincibility - take no damage from hazards or enemies',
+                    'key': 'god_mode',
+                    'getter': lambda: self.modifiers.god_mode,
+                    'setter': lambda v: setattr(self.modifiers, 'god_mode', v),
                 },
                 {
                     'type': 'checkbox',
-                    'label': 'Dash',
-                    'description': 'Hold Shift for a speed boost',
-                    'key': 'dash',
-                    'getter': lambda: self.modifiers.ability_states.get('dash', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('dash', v),
+                    'label': 'Infinite Stamina',
+                    'description': 'Abilities that use stamina never deplete (Dash, Wall Cling)',
+                    'key': 'infinite_stamina',
+                    'getter': lambda: self.modifiers.infinite_stamina,
+                    'setter': lambda v: setattr(self.modifiers, 'infinite_stamina', v),
                 },
                 {
                     'type': 'checkbox',
-                    'label': 'Slide',
-                    'description': 'Press V to slide along the ground',
-                    'key': 'slide',
-                    'getter': lambda: self.modifiers.ability_states.get('slide', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('slide', v),
+                    'label': 'Infinite Charges',
+                    'description': 'Abilities that use charges never deplete (Shadow Step, Grapple)',
+                    'key': 'infinite_charges',
+                    'getter': lambda: self.modifiers.infinite_charges,
+                    'setter': lambda v: setattr(self.modifiers, 'infinite_charges', v),
                 },
                 {
                     'type': 'checkbox',
-                    'label': 'Shadow Step (Smoke Bomb)',
-                    'description': 'Press Q to teleport with invincibility',
-                    'key': 'shadow_step',
-                    'getter': lambda: self.modifiers.ability_states.get('shadow_step', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('shadow_step', v),
+                    'label': 'Flight Mode',
+                    'description': 'Disable gravity - fly freely through the level',
+                    'key': 'flight_mode',
+                    'getter': lambda: self.modifiers.flight_mode,
+                    'setter': lambda v: setattr(self.modifiers, 'flight_mode', v),
                 },
                 {
-                    'type': 'checkbox',
-                    'label': 'Wall Cling',
-                    'description': 'Hold toward a wall to cling to it',
-                    'key': 'wall_cling',
-                    'getter': lambda: self.modifiers.ability_states.get('wall_cling', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('wall_cling', v),
-                },
-                {
-                    'type': 'checkbox',
-                    'label': 'Air Dodge',
-                    'description': 'Press C to dodge in any direction while airborne',
-                    'key': 'air_dodge',
-                    'getter': lambda: self.modifiers.ability_states.get('air_dodge', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('air_dodge', v),
-                },
-                {
-                    'type': 'checkbox',
-                    'label': 'Glide',
-                    'description': 'Hold Jump while falling to glide',
-                    'key': 'glide',
-                    'getter': lambda: self.modifiers.ability_states.get('glide', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('glide', v),
-                },
-                {
-                    'type': 'checkbox',
-                    'label': 'Sword Attack',
-                    'description': 'Combat ability (when unlocked)',
-                    'key': 'sword_attack',
-                    'getter': lambda: self.modifiers.ability_states.get('sword_attack', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('sword_attack', v),
-                },
-                {
-                    'type': 'checkbox',
-                    'label': 'Grapple Hook',
-                    'description': 'Advanced movement ability (when unlocked)',
-                    'key': 'grapple_hook',
-                    'getter': lambda: self.modifiers.ability_states.get('grapple_hook', True),
-                    'setter': lambda v: self.modifiers.set_ability_state('grapple_hook', v),
+                    'type': 'slider',
+                    'label': 'Time Scale',
+                    'description': 'Slow down or speed up game time (0.1x - 2.0x)',
+                    'key': 'time_scale',
+                    'getter': lambda: self.modifiers.time_scale,
+                    'setter': lambda v: self.modifiers.set_time_scale(v),
+                    'min': 0.1,
+                    'max': 2.0,
+                    'step': 0.1,
                 },
                 {
                     'type': 'button',
-                    'label': 'Enable All Abilities',
-                    'description': 'Turn on all ability toggles',
-                    'action': lambda: self.modifiers.reset_all_abilities(),
+                    'label': 'Reset Gameplay Assists',
+                    'description': 'Reset all gameplay assists to default values',
+                    'action': self._reset_gameplay_assists,
+                },
+            ],
+            self.TAB_VISUAL: [
+                {
+                    'type': 'checkbox',
+                    'label': 'Debug Overlay (F3)',
+                    'description': 'Show real-time ability states, resources, and combos',
+                    'key': 'show_debug_overlay',
+                    'getter': lambda: self.modifiers.show_debug_overlay,
+                    'setter': lambda v: setattr(self.modifiers, 'show_debug_overlay', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Show Hitboxes (F4)',
+                    'description': 'Display collision boxes for player, enemies, and objects',
+                    'key': 'show_hitboxes',
+                    'getter': lambda: self.modifiers.show_hitboxes,
+                    'setter': lambda v: setattr(self.modifiers, 'show_hitboxes', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Show Grid',
+                    'description': 'Display the level tile grid',
+                    'key': 'show_grid',
+                    'getter': lambda: self.modifiers.show_grid,
+                    'setter': lambda v: setattr(self.modifiers, 'show_grid', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Show FPS Counter',
+                    'description': 'Display frames per second in the corner',
+                    'key': 'show_fps',
+                    'getter': lambda: self.modifiers.show_fps,
+                    'setter': lambda v: setattr(self.modifiers, 'show_fps', v),
+                },
+            ],
+            self.TAB_LEVEL: [
+                {
+                    'type': 'checkbox',
+                    'label': 'Disable Hazards',
+                    'description': 'Hazards (spikes, pits) no longer damage the player',
+                    'key': 'disable_hazards',
+                    'getter': lambda: self.modifiers.disable_hazards,
+                    'setter': lambda v: setattr(self.modifiers, 'disable_hazards', v),
+                },
+                {
+                    'type': 'button',
+                    'label': 'Reload Current Level (F5)',
+                    'description': 'Restart the current level from the beginning',
+                    'action': self._reload_level,
                 },
             ],
         }
+
+    def _reset_gameplay_assists(self):
+        """Reset gameplay assists to defaults."""
+        self.modifiers.god_mode = False
+        self.modifiers.infinite_stamina = False
+        self.modifiers.infinite_charges = False
+        self.modifiers.flight_mode = False
+        self.modifiers.time_scale = 1.0
+        self.modifiers.save_preferences()
+
+    def _reload_level(self):
+        """Reload the current level."""
+        if hasattr(self.game, 'restart_level'):
+            self.game.restart_level()
+            self.game.change_state("play")
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handle input events."""
@@ -196,18 +209,9 @@ class OptionsState(GameState):
                 # Save and return to previous state
                 self.modifiers.save_preferences()
                 self.game.change_state("pause")
-            elif event.key == pygame.K_LEFT:
-                # Navigate tabs or difficulty depending on current tab
-                if self.current_tab == self.TAB_GAMEPLAY:
-                    self._cycle_difficulty(-1)
-                else:
-                    self._navigate_tabs(-1)
-            elif event.key == pygame.K_RIGHT:
-                # Navigate tabs or difficulty depending on current tab
-                if self.current_tab == self.TAB_GAMEPLAY:
-                    self._cycle_difficulty(1)
-                else:
-                    self._navigate_tabs(1)
+            elif event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                # Navigate tabs with arrow keys
+                self._navigate_tabs(1 if event.key == pygame.K_RIGHT else -1)
 
     def _navigate_tabs(self, direction: int):
         """Navigate between tabs."""
@@ -238,36 +242,17 @@ class OptionsState(GameState):
                     current = item['getter']()
                     item['setter'](not current)
                     self.modifiers.save_preferences()
-                    # Apply to player abilities if in-game
-                    self._apply_ability_states()
 
                 elif item['type'] == 'button':
                     # Execute button action
                     item['action']()
 
-                elif item['type'] == 'difficulty':
-                    # Check if clicking on left/right arrows
-                    # Left arrow area: x to x+100
-                    # Right arrow area: x+width-100 to x+width
-                    if pos[0] < item_rect.x + 150:
-                        item['cycle_left']()
-                    elif pos[0] > item_rect.x + item_rect.width - 150:
-                        item['cycle_right']()
-
                 elif item['type'] == 'slider':
                     # Handle slider interaction (drag to adjust)
                     pass  # Will be handled in update for dragging
 
-    def _apply_ability_states(self):
-        """Apply ability toggle states to the player."""
-        if hasattr(self.game, 'player') and self.game.player:
-            player = self.game.player
-            for ability_name, enabled in self.modifiers.ability_states.items():
-                if ability_name in player.abilities:
-                    player.abilities[ability_name].enabled = enabled
-
     def update(self, dt: float) -> None:
-        """Update options menu state."""
+        """Update debug menu state."""
         # Handle slider dragging
         if pygame.mouse.get_pressed()[0]:  # Left mouse button held
             self._handle_slider_drag(self.mouse_pos)
@@ -298,14 +283,20 @@ class OptionsState(GameState):
                 self.modifiers.save_preferences()
 
     def draw(self, surface: pygame.Surface) -> None:
-        """Draw the options menu."""
+        """Draw the debug menu."""
         # Background
         surface.fill(self.bg_color)
 
-        # Title
-        title = self.title_font.render("OPTIONS", True, self.text_color)
+        # Title with debug indicator
+        title = self.title_font.render("DEBUG MENU", True, self.text_color)
         title_rect = title.get_rect(center=(640, 30))
         surface.blit(title, title_rect)
+
+        # Warning text
+        warning_font = pygame.font.SysFont("consolas", 14)
+        warning = warning_font.render("Testing and Development Tools", True, (255, 150, 150))
+        warning_rect = warning.get_rect(center=(640, 55))
+        surface.blit(warning, warning_rect)
 
         # Draw tabs
         self._draw_tabs(surface)
@@ -318,7 +309,7 @@ class OptionsState(GameState):
 
     def _draw_tabs(self, surface: pygame.Surface):
         """Draw tab navigation."""
-        tab_y = 60
+        tab_y = 80
         tab_width = 1280 // len(self.tabs)
 
         for i, (tab_id, tab_name) in enumerate(self.tabs):
@@ -367,8 +358,6 @@ class OptionsState(GameState):
             self._draw_slider(surface, item, item_rect)
         elif item['type'] == 'button':
             self._draw_button(surface, item, item_rect)
-        elif item['type'] == 'difficulty':
-            self._draw_difficulty(surface, item, item_rect)
 
     def _draw_checkbox(self, surface: pygame.Surface, item: Dict[str, Any], rect: pygame.Rect):
         """Draw a checkbox option."""
@@ -450,39 +439,6 @@ class OptionsState(GameState):
         if 'description' in item:
             desc = self.desc_font.render(item['description'], True, self.text_dim)
             surface.blit(desc, (rect.x + 340, rect.y + 12))
-
-    def _draw_difficulty(self, surface: pygame.Surface, item: Dict[str, Any], rect: pygame.Rect):
-        """Draw difficulty selector."""
-        # Label
-        label = self.item_font.render(item['label'] + ":", True, self.text_color)
-        surface.blit(label, (rect.x + 20, rect.y + 8))
-
-        # Current difficulty value
-        current_diff = item['getter']()
-        diff_config = DIFFICULTY_CONFIG.get(current_diff, {})
-        value_text = current_diff.upper()
-        value = self.item_font.render(value_text, True, (255, 220, 180))
-
-        # Center the value with arrows
-        center_x = rect.x + rect.width // 2
-        value_rect = value.get_rect(center=(center_x, rect.y + 15))
-        surface.blit(value, value_rect)
-
-        # Left arrow
-        left_arrow = self.item_font.render("<", True, self.text_color)
-        left_arrow_rect = left_arrow.get_rect(midright=(value_rect.left - 30, rect.y + 15))
-        surface.blit(left_arrow, left_arrow_rect)
-
-        # Right arrow
-        right_arrow = self.item_font.render(">", True, self.text_color)
-        right_arrow_rect = right_arrow.get_rect(midleft=(value_rect.right + 30, rect.y + 15))
-        surface.blit(right_arrow, right_arrow_rect)
-
-        # Description
-        if 'description' in item:
-            desc = self.desc_font.render(item['description'], True, self.text_dim)
-            desc_rect = desc.get_rect(center=(rect.x + rect.width // 2, rect.y + 32))
-            surface.blit(desc, desc_rect)
 
     def _draw_back_button(self, surface: pygame.Surface):
         """Draw back/exit button."""
