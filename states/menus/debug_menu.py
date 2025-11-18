@@ -14,7 +14,7 @@ import pygame
 from typing import Dict, List, Tuple, Optional, Any
 from ..base import GameState
 from gameplay_modifiers import get_modifiers
-from core.game import transform_mouse_to_logical
+from utils import transform_mouse_to_logical
 
 
 class DebugMenuState(GameState):
