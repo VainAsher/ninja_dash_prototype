@@ -468,7 +468,7 @@ class OptionsState(GameState):
             surface.blit(desc, (rect.x + 340, rect.y + 12))
 
     def _draw_difficulty(self, surface: pygame.Surface, item: Dict[str, Any], rect: pygame.Rect):
-        """Draw difficulty selector."""
+        """Draw difficulty selector with clickable arrow tiles."""
         # Label
         label = self.item_font.render(item['label'] + ":", True, self.text_color)
         surface.blit(label, (rect.x + 20, rect.y + 8))
@@ -484,13 +484,28 @@ class OptionsState(GameState):
         value_rect = value.get_rect(center=(center_x, rect.y + 15))
         surface.blit(value, value_rect)
 
-        # Left arrow
-        left_arrow = self.item_font.render("<", True, self.text_color)
+        # Calculate clickable zones (using thirds as per click handler)
+        third_width = rect.width // 3
+        left_zone = pygame.Rect(rect.x, rect.y, third_width, rect.height - 5)
+        right_zone = pygame.Rect(rect.x + 2 * third_width, rect.y, third_width, rect.height - 5)
+
+        # Left arrow tile with hover effect
+        left_hover = left_zone.collidepoint(self.mouse_pos)
+        if left_hover:
+            arrow_bg = pygame.Rect(value_rect.left - 70, rect.y + 3, 60, 24)
+            pygame.draw.rect(surface, (70, 100, 150), arrow_bg, border_radius=8)
+
+        left_arrow = self.item_font.render("◄", True, (255, 255, 255) if left_hover else self.text_color)
         left_arrow_rect = left_arrow.get_rect(midright=(value_rect.left - 30, rect.y + 15))
         surface.blit(left_arrow, left_arrow_rect)
 
-        # Right arrow
-        right_arrow = self.item_font.render(">", True, self.text_color)
+        # Right arrow tile with hover effect
+        right_hover = right_zone.collidepoint(self.mouse_pos)
+        if right_hover:
+            arrow_bg = pygame.Rect(value_rect.right + 10, rect.y + 3, 60, 24)
+            pygame.draw.rect(surface, (70, 100, 150), arrow_bg, border_radius=8)
+
+        right_arrow = self.item_font.render("►", True, (255, 255, 255) if right_hover else self.text_color)
         right_arrow_rect = right_arrow.get_rect(midleft=(value_rect.right + 30, rect.y + 15))
         surface.blit(right_arrow, right_arrow_rect)
 
