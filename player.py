@@ -625,9 +625,6 @@ class Player:
                 else:
                     self.vx -= decel * (1 if self.vx > 0 else -1)
 
-            if self.crouching:
-                self.vx *= CROUCH_SPEED_MULT
-
             # Apply speed limits (with power-up and ability modifiers)
             effective_max_speed = self.user_max_speed or MAX_RUN_SPEED
 
@@ -651,6 +648,10 @@ class Player:
 
             if abs(self.vx) > effective_max_speed:
                 self.vx = effective_max_speed * (1 if self.vx > 0 else -1)
+
+            # Apply crouch speed reduction AFTER all boosts (so boosts work while crouching)
+            if self.crouching:
+                self.vx *= CROUCH_SPEED_MULT
 
         # === JUMPING ===
         if jump_down and not self._jump_held:

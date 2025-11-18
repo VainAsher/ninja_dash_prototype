@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from ..base import GameState
 from gameplay_modifiers import get_modifiers
 from settings import DIFFICULTY_CONFIG
+from core.game import transform_mouse_to_logical
 
 
 class OptionsState(GameState):
@@ -186,10 +187,10 @@ class OptionsState(GameState):
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handle input events."""
         if event.type == pygame.MOUSEMOTION:
-            self.mouse_pos = event.pos
+            self.mouse_pos = transform_mouse_to_logical(event.pos)
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self._handle_click(event.pos)
+            self._handle_click(transform_mouse_to_logical(event.pos))
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -219,6 +220,14 @@ class OptionsState(GameState):
 
     def _handle_click(self, pos: Tuple[int, int]):
         """Handle mouse clicks."""
+        # Check back button click
+        back_rect = pygame.Rect(50, 650, 200, 50)
+        if back_rect.collidepoint(pos):
+            self.modifiers.save_preferences()
+            return_state = self.game.previous_state_name or "menu"
+            self.game.change_state(return_state)
+            return
+
         # Check tab clicks
         tab_y = 60
         tab_width = 1280 // len(self.tabs)
@@ -249,12 +258,17 @@ class OptionsState(GameState):
 
                 elif item['type'] == 'difficulty':
                     # Check if clicking on left/right arrows
-                    # Left arrow area: x to x+100
-                    # Right arrow area: x+width-100 to x+width
-                    if pos[0] < item_rect.x + 150:
+                    # Arrows are positioned around the center value text
+                    # Left arrow: left third of the item
+                    # Right arrow: right third of the item
+                    # This matches the visual layout from _draw_difficulty()
+                    third_width = item_rect.width // 3
+                    if pos[0] < item_rect.x + third_width:
                         item['cycle_left']()
-                    elif pos[0] > item_rect.x + item_rect.width - 150:
+                        self.modifiers.save_preferences()
+                    elif pos[0] > item_rect.x + 2 * third_width:
                         item['cycle_right']()
+                        self.modifiers.save_preferences()
 
                 elif item['type'] == 'slider':
                     # Handle slider interaction (drag to adjust)

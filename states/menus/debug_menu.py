@@ -14,6 +14,7 @@ import pygame
 from typing import Dict, List, Tuple, Optional, Any
 from ..base import GameState
 from gameplay_modifiers import get_modifiers
+from core.game import transform_mouse_to_logical
 
 
 class DebugMenuState(GameState):
@@ -199,10 +200,10 @@ class DebugMenuState(GameState):
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handle input events."""
         if event.type == pygame.MOUSEMOTION:
-            self.mouse_pos = event.pos
+            self.mouse_pos = transform_mouse_to_logical(event.pos)
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self._handle_click(event.pos)
+            self._handle_click(transform_mouse_to_logical(event.pos))
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
