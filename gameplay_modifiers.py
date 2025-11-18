@@ -53,6 +53,12 @@ class GameplayModifiers:
         # Level Options
         self.disable_hazards = False     # Hazards don't damage
 
+        # Level Generation Tweaks (for custom playstyles)
+        # These allow players to customize level generation without changing difficulty
+        self.level_verticality = 0.5     # 0.0 = mostly horizontal, 1.0 = mostly vertical
+        self.level_branchiness = 0.25    # 0.0 = linear, 1.0 = very branchy/open
+        self.level_platform_density = 0.5  # 0.0 = sparse, 1.0 = dense platforms
+
         # Load saved preferences
         self.load_preferences()
 
@@ -155,6 +161,30 @@ class GameplayModifiers:
         self.save_preferences()
         return self.disable_hazards
 
+    # Level Generation Tweaks
+    def set_level_verticality(self, value: float):
+        """Set level verticality bias (0.0-1.0)."""
+        self.level_verticality = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_level_branchiness(self, value: float):
+        """Set level branchiness (0.0-1.0)."""
+        self.level_branchiness = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_level_platform_density(self, value: float):
+        """Set platform density (0.0-1.0)."""
+        self.level_platform_density = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def get_level_gen_overrides(self):
+        """Get level generation parameter overrides."""
+        return {
+            'verticality_bias': self.level_verticality,
+            'branchiness': self.level_branchiness,
+            'platform_density': self.level_platform_density,
+        }
+
     def reset_to_defaults(self):
         """Reset all modifiers to default values."""
         self.god_mode = False
@@ -167,6 +197,9 @@ class GameplayModifiers:
         self.show_grid = False
         self.show_fps = False
         self.disable_hazards = False
+        self.level_verticality = 0.5
+        self.level_branchiness = 0.25
+        self.level_platform_density = 0.5
         self.reset_all_abilities()
         self.save_preferences()
 
@@ -197,6 +230,9 @@ class GameplayModifiers:
                 'show_grid': self.show_grid,
                 'show_fps': self.show_fps,
                 'disable_hazards': self.disable_hazards,
+                'level_verticality': self.level_verticality,
+                'level_branchiness': self.level_branchiness,
+                'level_platform_density': self.level_platform_density,
             }
 
             with open(self.get_preferences_path(), 'w') as f:
@@ -224,6 +260,9 @@ class GameplayModifiers:
                 self.show_grid = data.get('show_grid', False)
                 self.show_fps = data.get('show_fps', False)
                 self.disable_hazards = data.get('disable_hazards', False)
+                self.level_verticality = data.get('level_verticality', 0.5)
+                self.level_branchiness = data.get('level_branchiness', 0.25)
+                self.level_platform_density = data.get('level_platform_density', 0.5)
         except Exception as e:
             print(f"Warning: Could not load modifiers preferences: {e}")
 
