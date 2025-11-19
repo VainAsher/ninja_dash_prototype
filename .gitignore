@@ -45,3 +45,11 @@ save_data.json
 .coverage
 htmlcov/
 .pytest_cache/
+
+# PyInstaller builds
+build/
+dist/
+*.spec.bak
+.env_test
+.env_staging
+.env_prod

@@ -4,13 +4,23 @@
 import sys
 import pygame
 
+# Import environment configuration first
+import env_config
+
 from settings import FPS
 from core.game import Game
 
 
 def main() -> None:
+    # Print environment info if console is visible
+    if env_config.CONSOLE_VISIBLE:
+        env_config.print_env_info()
+
     pygame.init()
     pygame.mixer.init(frequency=44100, size=-16, channels=2)
+
+    # Set window title with environment suffix
+    pygame.display.set_caption(f"Ninja Dash{env_config.WINDOW_TITLE_SUFFIX}")
 
     clock = pygame.time.Clock()
     game = Game()
