@@ -5,10 +5,11 @@ Controls Viewer State - Display keybindings and allow rebinding
 from __future__ import annotations
 
 import pygame
-from typing import Optional
+from typing import Optional, Tuple
 
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, COLOR_BG, FONT, FONT_SMALL, FONT_BIG
 from controls import get_controls_manager
+from utils import transform_mouse_to_logical
 from ..base import GameState
 
 
@@ -26,6 +27,7 @@ class ControlsViewerState(GameState):
         self.max_scroll = 0
         self.category_index = 0
         self.categories = []
+        self.mouse_pos = (0, 0)
 
         # Rebinding state
         self.rebinding_action: Optional[str] = None
@@ -54,7 +56,13 @@ class ControlsViewerState(GameState):
 
     def handle_event(self, event: pygame.event.EventType) -> None:
         """Handle input events."""
-        if event.type == pygame.KEYDOWN:
+        if event.type == pygame.MOUSEMOTION:
+            self.mouse_pos = transform_mouse_to_logical(event.pos)
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self._handle_click(transform_mouse_to_logical(event.pos))
+
+        elif event.type == pygame.KEYDOWN:
             # If waiting for rebind key
             if self.waiting_for_key and self.rebinding_action:
                 self._handle_rebind_key(event.key)
@@ -120,6 +128,40 @@ class ControlsViewerState(GameState):
                 self.rebinding_action = None
             # If failed (conflict), could show message
 
+    def _handle_click(self, pos: Tuple[int, int]) -> None:
+        """Handle mouse clicks."""
+        # Check back button click (bottom left corner)
+        back_rect = pygame.Rect(50, LOGICAL_H - 70, 200, 50)
+        if back_rect.collidepoint(pos):
+            self.controls.save_user_bindings()
+            return_state = self.game.previous_state_name or "menu"
+            self.game.change_state(return_state)
+            return
+
+        # Check category tab clicks
+        tab_y = 100
+        tab_height = 40
+        tab_spacing = 10
+        start_x = 50
+
+        for i, category in enumerate(self.categories):
+            # Calculate tab dimensions (same as _draw_category_tabs)
+            category_display = category.replace("_", " ").title()
+            text = FONT.render(category_display, True, COLOR_TEXT)
+            tab_width = text.get_width() + 30
+
+            tab_rect = pygame.Rect(
+                start_x + i * (tab_width + tab_spacing),
+                tab_y,
+                tab_width,
+                tab_height
+            )
+
+            if tab_rect.collidepoint(pos):
+                self.category_index = i
+                self.scroll_offset = 0
+                return
+
     def update(self, dt: float) -> None:
         """Update the controls viewer."""
         pass
@@ -152,6 +194,9 @@ class ControlsViewerState(GameState):
 
         # Controls panel
         self._draw_controls_panel(surface)
+
+        # Back button
+        self._draw_back_button(surface)
 
     def _draw_category_tabs(self, surface: pygame.Surface) -> None:
         """Draw category selection tabs."""
@@ -259,3 +304,21 @@ class ControlsViewerState(GameState):
         )
         thumb_rect = pygame.Rect(scrollbar_x, thumb_y, scrollbar_width, thumb_height)
         pygame.draw.rect(surface, (100, 100, 150), thumb_rect, border_radius=4)
+
+    def _draw_back_button(self, surface: pygame.Surface) -> None:
+        """Draw back/exit button."""
+        back_rect = pygame.Rect(50, LOGICAL_H - 70, 200, 50)
+
+        # Background with hover effect
+        if back_rect.collidepoint(self.mouse_pos):
+            color = self.highlight_color
+        else:
+            color = self.panel_color
+
+        pygame.draw.rect(surface, color, back_rect, border_radius=5)
+        pygame.draw.rect(surface, COLOR_TEXT, back_rect, 2, border_radius=5)
+
+        # Label
+        label = FONT.render("Back (ESC)", True, COLOR_TEXT)
+        label_rect = label.get_rect(center=back_rect.center)
+        surface.blit(label, label_rect)

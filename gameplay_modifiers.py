@@ -53,6 +53,21 @@ class GameplayModifiers:
         # Level Options
         self.disable_hazards = False     # Hazards don't damage
 
+        # Level Generation Tweaks (for custom playstyles)
+        # These allow players to customize level generation without changing difficulty
+        self.level_verticality = 0.5     # 0.0 = mostly horizontal, 1.0 = mostly vertical
+        self.level_branchiness = 0.25    # 0.0 = linear, 1.0 = very branchy/open
+        self.level_platform_density = 0.5  # 0.0 = sparse, 1.0 = dense platforms
+
+        # Combat/Challenge Settings
+        self.hazard_density = 0.5        # 0.0 = minimal hazards, 1.0 = maximum hazards
+        self.enemy_density = 0.5         # 0.0 = minimal enemies, 1.0 = maximum enemies
+
+        # Level Feature Settings
+        self.pillar_frequency = 0.5      # 0.0 = no pillars, 1.0 = many pillars
+        self.hole_frequency = 0.5        # 0.0 = no holes, 1.0 = many holes/gaps
+        self.phaseable_walls = 0.5       # 0.0 = no phaseable walls, 1.0 = many phaseable walls
+
         # Load saved preferences
         self.load_preferences()
 
@@ -155,6 +170,60 @@ class GameplayModifiers:
         self.save_preferences()
         return self.disable_hazards
 
+    # Level Generation Tweaks
+    def set_level_verticality(self, value: float):
+        """Set level verticality bias (0.0-1.0)."""
+        self.level_verticality = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_level_branchiness(self, value: float):
+        """Set level branchiness (0.0-1.0)."""
+        self.level_branchiness = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_level_platform_density(self, value: float):
+        """Set platform density (0.0-1.0)."""
+        self.level_platform_density = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_hazard_density(self, value: float):
+        """Set hazard density (0.0-1.0)."""
+        self.hazard_density = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_enemy_density(self, value: float):
+        """Set enemy density (0.0-1.0)."""
+        self.enemy_density = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_pillar_frequency(self, value: float):
+        """Set pillar frequency (0.0-1.0)."""
+        self.pillar_frequency = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_hole_frequency(self, value: float):
+        """Set hole frequency (0.0-1.0)."""
+        self.hole_frequency = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def set_phaseable_walls(self, value: float):
+        """Set phaseable walls percentage (0.0-1.0)."""
+        self.phaseable_walls = max(0.0, min(1.0, value))
+        self.save_preferences()
+
+    def get_level_gen_overrides(self):
+        """Get level generation parameter overrides."""
+        return {
+            'verticality_bias': self.level_verticality,
+            'branchiness': self.level_branchiness,
+            'platform_density': self.level_platform_density,
+            'hazard_rate': self.hazard_density * 0.065,  # Scale to actual hazard rate range
+            'enemy_density': self.enemy_density * 0.0333,  # Scale to actual enemy density range
+            'pillar_chance': self.pillar_frequency * 0.5,  # Scale to pillar chance range
+            'hole_chance': self.hole_frequency * 0.38,     # Scale to hole chance range
+            'phaseable_wall_chance': self.phaseable_walls * 0.25,  # Scale to phaseable wall range
+        }
+
     def reset_to_defaults(self):
         """Reset all modifiers to default values."""
         self.god_mode = False
@@ -167,6 +236,14 @@ class GameplayModifiers:
         self.show_grid = False
         self.show_fps = False
         self.disable_hazards = False
+        self.level_verticality = 0.5
+        self.level_branchiness = 0.25
+        self.level_platform_density = 0.5
+        self.hazard_density = 0.5
+        self.enemy_density = 0.5
+        self.pillar_frequency = 0.5
+        self.hole_frequency = 0.5
+        self.phaseable_walls = 0.5
         self.reset_all_abilities()
         self.save_preferences()
 
@@ -197,6 +274,14 @@ class GameplayModifiers:
                 'show_grid': self.show_grid,
                 'show_fps': self.show_fps,
                 'disable_hazards': self.disable_hazards,
+                'level_verticality': self.level_verticality,
+                'level_branchiness': self.level_branchiness,
+                'level_platform_density': self.level_platform_density,
+                'hazard_density': self.hazard_density,
+                'enemy_density': self.enemy_density,
+                'pillar_frequency': self.pillar_frequency,
+                'hole_frequency': self.hole_frequency,
+                'phaseable_walls': self.phaseable_walls,
             }
 
             with open(self.get_preferences_path(), 'w') as f:
@@ -224,6 +309,14 @@ class GameplayModifiers:
                 self.show_grid = data.get('show_grid', False)
                 self.show_fps = data.get('show_fps', False)
                 self.disable_hazards = data.get('disable_hazards', False)
+                self.level_verticality = data.get('level_verticality', 0.5)
+                self.level_branchiness = data.get('level_branchiness', 0.25)
+                self.level_platform_density = data.get('level_platform_density', 0.5)
+                self.hazard_density = data.get('hazard_density', 0.5)
+                self.enemy_density = data.get('enemy_density', 0.5)
+                self.pillar_frequency = data.get('pillar_frequency', 0.5)
+                self.hole_frequency = data.get('hole_frequency', 0.5)
+                self.phaseable_walls = data.get('phaseable_walls', 0.5)
         except Exception as e:
             print(f"Warning: Could not load modifiers preferences: {e}")
 

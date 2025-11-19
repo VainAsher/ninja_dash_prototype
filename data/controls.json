@@ -20,12 +20,6 @@
       "time_slow": ["z"],
       "teleport": ["r"]
     },
-    "combat": {
-      "melee_attack": ["j", "mouse1"],
-      "ranged_attack": ["k", "mouse2"],
-      "special_attack": ["l"],
-      "block_parry": ["i"]
-    },
     "ui": {
       "pause": ["escape"],
       "inventory": ["tab"],
@@ -33,6 +27,12 @@
       "quests": ["n"],
       "stats": ["p"],
       "controls_help": ["f1"]
+    },
+    "combat": {
+      "melee_attack": ["j", "mouse1"],
+      "ranged_attack": ["k", "mouse2"],
+      "special_attack": ["l"],
+      "block_parry": ["i"]
     },
     "debug": {
       "toggle_debug_overlay": ["f3"],
@@ -56,18 +56,18 @@
       "time_slow": "left_trigger",
       "teleport": "right_trigger"
     },
-    "combat": {
-      "melee_attack": "x",
-      "ranged_attack": "y",
-      "special_attack": "b",
-      "block_parry": "lb"
-    },
     "ui": {
       "pause": "start",
       "inventory": "select",
       "map": "dpad_up",
       "quests": "dpad_left",
       "controls_help": "select+start"
+    },
+    "combat": {
+      "melee_attack": "x",
+      "ranged_attack": "y",
+      "special_attack": "b",
+      "block_parry": "lb"
     }
   },
   "display_names": {

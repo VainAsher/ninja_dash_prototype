@@ -9,6 +9,7 @@ from settings import (
     COLOR_TEXT, COLOR_BTN_BG, COLOR_BTN_BG_HOVER,
     COLOR_HUD_BG, HUD_HEIGHT
 )
+from utils import transform_mouse_to_logical
 
 
 class Button:
@@ -28,14 +29,17 @@ class Button:
     def handle_event(self, event):
         if not self.enabled:
             return
-            
+
         if event.type == pygame.MOUSEMOTION:
-            self.hover = self.rect.collidepoint(event.pos)
+            pos = transform_mouse_to_logical(event.pos)
+            self.hover = self.rect.collidepoint(pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.rect.collidepoint(event.pos):
+            pos = transform_mouse_to_logical(event.pos)
+            if self.rect.collidepoint(pos):
                 self.click_started = True
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.click_started and self.rect.collidepoint(event.pos):
+            pos = transform_mouse_to_logical(event.pos)
+            if self.click_started and self.rect.collidepoint(pos):
                 self.on_click()
             self.click_started = False
 
@@ -93,9 +97,11 @@ class Toggle:
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEMOTION:
-            self.hover = self.switch_rect.collidepoint(event.pos)
+            pos = transform_mouse_to_logical(event.pos)
+            self.hover = self.switch_rect.collidepoint(pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.switch_rect.collidepoint(event.pos):
+            pos = transform_mouse_to_logical(event.pos)
+            if self.switch_rect.collidepoint(pos):
                 self.value = not self.value
                 self.on_change(self.value)
 
@@ -147,15 +153,17 @@ class Slider:
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.slider_rect.collidepoint(event.pos) or self._get_handle_rect().collidepoint(event.pos):
+            pos = transform_mouse_to_logical(event.pos)
+            if self.slider_rect.collidepoint(pos) or self._get_handle_rect().collidepoint(pos):
                 self.dragging = True
-                self._update_value_from_mouse(event.pos)
+                self._update_value_from_mouse(pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.dragging = False
         elif event.type == pygame.MOUSEMOTION:
+            pos = transform_mouse_to_logical(event.pos)
             if self.dragging:
-                self._update_value_from_mouse(event.pos)
-            self.hover = self.slider_rect.collidepoint(event.pos) or self._get_handle_rect().collidepoint(event.pos)
+                self._update_value_from_mouse(pos)
+            self.hover = self.slider_rect.collidepoint(pos) or self._get_handle_rect().collidepoint(pos)
 
     def _update_value_from_mouse(self, pos):
         # Calculate value from mouse position

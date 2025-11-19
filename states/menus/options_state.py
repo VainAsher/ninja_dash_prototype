@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from ..base import GameState
 from gameplay_modifiers import get_modifiers
 from settings import DIFFICULTY_CONFIG
+from utils import transform_mouse_to_logical
 
 
 class OptionsState(GameState):
@@ -99,6 +100,89 @@ class OptionsState(GameState):
                     'getter': lambda: self.game.difficulty,
                     'cycle_left': lambda: self._cycle_difficulty(-1),
                     'cycle_right': lambda: self._cycle_difficulty(1),
+                },
+                # Level Structure
+                {
+                    'type': 'slider',
+                    'label': 'Level Verticality',
+                    'description': 'Horizontal (left) to Vertical (right) level bias',
+                    'getter': lambda: self.modifiers.level_verticality,
+                    'setter': lambda v: self.modifiers.set_level_verticality(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Level Branchiness',
+                    'description': 'Linear (left) to Branchy/Open (right) level structure',
+                    'getter': lambda: self.modifiers.level_branchiness,
+                    'setter': lambda v: self.modifiers.set_level_branchiness(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Platform Density',
+                    'description': 'Sparse (left) to Dense (right) platforming',
+                    'getter': lambda: self.modifiers.level_platform_density,
+                    'setter': lambda v: self.modifiers.set_level_platform_density(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                # Combat/Challenge
+                {
+                    'type': 'slider',
+                    'label': 'Hazard Density',
+                    'description': 'Minimal (left) to Maximum (right) spike hazards',
+                    'getter': lambda: self.modifiers.hazard_density,
+                    'setter': lambda v: self.modifiers.set_hazard_density(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Enemy Density',
+                    'description': 'Minimal (left) to Maximum (right) enemy spawns',
+                    'getter': lambda: self.modifiers.enemy_density,
+                    'setter': lambda v: self.modifiers.set_enemy_density(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                # Level Features
+                {
+                    'type': 'slider',
+                    'label': 'Pillar Frequency',
+                    'description': 'None (left) to Many (right) vertical pillars/obstacles',
+                    'getter': lambda: self.modifiers.pillar_frequency,
+                    'setter': lambda v: self.modifiers.set_pillar_frequency(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Hole/Gap Frequency',
+                    'description': 'None (left) to Many (right) gaps in floors',
+                    'getter': lambda: self.modifiers.hole_frequency,
+                    'setter': lambda v: self.modifiers.set_hole_frequency(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Phaseable Walls',
+                    'description': 'None (left) to Many (right) walls you can phase through',
+                    'getter': lambda: self.modifiers.phaseable_walls,
+                    'setter': lambda v: self.modifiers.set_phaseable_walls(v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
                 },
             ],
             self.TAB_ABILITIES: [
@@ -186,10 +270,10 @@ class OptionsState(GameState):
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handle input events."""
         if event.type == pygame.MOUSEMOTION:
-            self.mouse_pos = event.pos
+            self.mouse_pos = transform_mouse_to_logical(event.pos)
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self._handle_click(event.pos)
+            self._handle_click(transform_mouse_to_logical(event.pos))
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -219,6 +303,14 @@ class OptionsState(GameState):
 
     def _handle_click(self, pos: Tuple[int, int]):
         """Handle mouse clicks."""
+        # Check back button click
+        back_rect = pygame.Rect(50, 650, 200, 50)
+        if back_rect.collidepoint(pos):
+            self.modifiers.save_preferences()
+            return_state = self.game.previous_state_name or "menu"
+            self.game.change_state(return_state)
+            return
+
         # Check tab clicks
         tab_y = 60
         tab_width = 1280 // len(self.tabs)
@@ -249,12 +341,27 @@ class OptionsState(GameState):
 
                 elif item['type'] == 'difficulty':
                     # Check if clicking on left/right arrows
-                    # Left arrow area: x to x+100
-                    # Right arrow area: x+width-100 to x+width
-                    if pos[0] < item_rect.x + 150:
+                    # Need to calculate arrow positions same as _draw_difficulty()
+                    current_diff = item['getter']()
+                    value_text = current_diff.upper()
+                    value_surface = self.item_font.render(value_text, True, (255, 220, 180))
+
+                    # Center the value
+                    center_x = item_rect.x + item_rect.width // 2
+                    value_width = value_surface.get_width()
+                    value_left = center_x - value_width // 2
+                    value_right = center_x + value_width // 2
+
+                    # Click areas match the hover backgrounds in _draw_difficulty
+                    left_arrow_rect = pygame.Rect(value_left - 70, item_rect.y + 3, 60, 24)
+                    right_arrow_rect = pygame.Rect(value_right + 10, item_rect.y + 3, 60, 24)
+
+                    if left_arrow_rect.collidepoint(pos):
                         item['cycle_left']()
-                    elif pos[0] > item_rect.x + item_rect.width - 150:
+                        self.modifiers.save_preferences()
+                    elif right_arrow_rect.collidepoint(pos):
                         item['cycle_right']()
+                        self.modifiers.save_preferences()
 
                 elif item['type'] == 'slider':
                     # Handle slider interaction (drag to adjust)
@@ -454,7 +561,7 @@ class OptionsState(GameState):
             surface.blit(desc, (rect.x + 340, rect.y + 12))
 
     def _draw_difficulty(self, surface: pygame.Surface, item: Dict[str, Any], rect: pygame.Rect):
-        """Draw difficulty selector."""
+        """Draw difficulty selector with clickable arrow tiles."""
         # Label
         label = self.item_font.render(item['label'] + ":", True, self.text_color)
         surface.blit(label, (rect.x + 20, rect.y + 8))
@@ -470,13 +577,25 @@ class OptionsState(GameState):
         value_rect = value.get_rect(center=(center_x, rect.y + 15))
         surface.blit(value, value_rect)
 
-        # Left arrow
-        left_arrow = self.item_font.render("<", True, self.text_color)
+        # Calculate clickable zones matching the click handler
+        left_arrow_bg_rect = pygame.Rect(value_rect.left - 70, rect.y + 3, 60, 24)
+        right_arrow_bg_rect = pygame.Rect(value_rect.right + 10, rect.y + 3, 60, 24)
+
+        # Left arrow tile with hover effect
+        left_hover = left_arrow_bg_rect.collidepoint(self.mouse_pos)
+        if left_hover:
+            pygame.draw.rect(surface, (70, 100, 150), left_arrow_bg_rect, border_radius=8)
+
+        left_arrow = self.item_font.render("◄", True, (255, 255, 255) if left_hover else self.text_color)
         left_arrow_rect = left_arrow.get_rect(midright=(value_rect.left - 30, rect.y + 15))
         surface.blit(left_arrow, left_arrow_rect)
 
-        # Right arrow
-        right_arrow = self.item_font.render(">", True, self.text_color)
+        # Right arrow tile with hover effect
+        right_hover = right_arrow_bg_rect.collidepoint(self.mouse_pos)
+        if right_hover:
+            pygame.draw.rect(surface, (70, 100, 150), right_arrow_bg_rect, border_radius=8)
+
+        right_arrow = self.item_font.render("►", True, (255, 255, 255) if right_hover else self.text_color)
         right_arrow_rect = right_arrow.get_rect(midleft=(value_rect.right + 30, rect.y + 15))
         surface.blit(right_arrow, right_arrow_rect)
 
