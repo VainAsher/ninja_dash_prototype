@@ -422,25 +422,26 @@ def mark_phaseable_walls(
     """
     Designate vertical walls that can be phased through with Shadow Step ability.
 
-    Randomly selects a subset of vertical interior walls to mark as phaseable,
-    allowing players with the Shadow Step ability to pass through them. This
-    creates shortcuts and alternate paths for advanced players.
+    Identifies vertical wall segments that are at least 2 tiles tall and form
+    meaningful barriers. This prevents single-tile walls and useless placements
+    at platform edges.
 
     Args:
         tiles: List of all solid tile rectangles in the level
         world: 2D tile array where 1=solid, 0=air
         rng: Seeded random number generator for deterministic selection
         phaseable_wall_chance: Probability (0.0-1.0) of marking each eligible wall
-                               as phaseable. Default: 0.35 (35%)
+                               segment as phaseable. Default: 0.35 (35%)
 
     Returns:
         List of pygame.Rect objects representing walls that can be phased through.
         Subset of input tiles list.
 
     Selection Criteria:
-        - Must be a vertical wall (air on left OR right side)
+        - Must be a vertical wall segment (air on left OR right side)
+        - Must be at least 2 tiles tall (forms an actual barrier)
         - Must NOT be on level boundary (prevents escaping)
-        - Must be solid tile (world[ty][tx] == 1)
+        - Must NOT be a useless platform edge (both sides open)
         - Randomly selected based on phaseable_wall_chance
 
     Example:
@@ -449,44 +450,136 @@ def mark_phaseable_walls(
         >>> world = [[1, 0, 1], [1, 0, 1], ...]  # Level grid
         >>> rng = random.Random(42)
         >>> phaseable = mark_phaseable_walls(tiles, world, rng, 0.5)
+        >>> # All phaseable walls are part of segments >= 2 tiles tall
         >>> len(phaseable) < len(tiles)  # Subset of original tiles
-        True
-        >>> all(t in tiles for t in phaseable)  # All are from original set
         True
 
     Edge Cases:
         - No eligible walls: Returns empty list
         - phaseable_wall_chance = 0.0: Returns empty list
-        - phaseable_wall_chance = 1.0: Returns all eligible vertical walls
+        - phaseable_wall_chance = 1.0: Returns all eligible vertical wall segments
         - Boundary walls: Always excluded regardless of chance
+        - Single tile walls: Always excluded (don't form barriers)
 
     Performance:
-        O(n) where n = len(tiles). Checks each tile once with simple boundary
-        and adjacency tests.
+        O(n) where n = len(tiles). First pass identifies wall segments,
+        second pass filters by height and selects randomly.
     """
-    phaseable = []
+    # Step 1: Build a mapping of tile coordinates to rectangles
+    tile_map = {}
+    for t in tiles:
+        tx, ty = pixel_to_tile(t.x, t.y)
+        tile_map[(tx, ty)] = t
+
+    # Step 2: Find vertical wall segments (groups of consecutive vertical tiles)
+    visited = set()
+    wall_segments = []
 
     for t in tiles:
-        # Convert rect to tile coordinates
         tx, ty = pixel_to_tile(t.x, t.y)
 
-        # Skip boundary walls
-        if is_on_boundary(tx, ty):
+        # Skip if already visited or on boundary
+        if (tx, ty) in visited or is_on_boundary(tx, ty):
             continue
-        
-        # Check if this is a vertical wall (has space on left or right)
-        is_vertical_wall = False
-        if 0 < tx < WORLD_W - 1:
-            # Check if there's air on one side
-            if world[ty][tx - 1] == 0 or world[ty][tx + 1] == 0:
-                # Make sure it's actually a wall barrier
-                if world[ty][tx] == 1:
-                    is_vertical_wall = True
-        
-        # Only mark vertical walls as phaseable
-        if is_vertical_wall and rng.random() < phaseable_wall_chance:
-            phaseable.append(t)
-    
+
+        # Check if this is a vertical wall tile (has air on one side)
+        if not (0 < tx < WORLD_W - 1 and 0 < ty < WORLD_H - 1):
+            continue
+
+        # Must have air on left or right
+        has_air_left = world[ty][tx - 1] == 0
+        has_air_right = world[ty][tx + 1] == 0
+
+        if not (has_air_left or has_air_right) or world[ty][tx] != 1:
+            continue
+
+        # Filter out platform edges where wall serves no purpose
+        # A wall serves no purpose if:
+        # - It's at the end of a horizontal platform (air above and to the side)
+        # - There's no vertical continuation
+        is_platform_edge = (
+            ty > 0 and
+            world[ty - 1][tx] == 0 and  # Air above
+            ((has_air_left and tx > 1 and world[ty][tx - 2] == 0) or  # Open on left
+             (has_air_right and tx < WORLD_W - 2 and world[ty][tx + 2] == 0))  # Open on right
+        )
+
+        if is_platform_edge:
+            # Check if there's vertical continuation - if not, skip
+            has_vertical_neighbor = (
+                (ty > 0 and world[ty - 1][tx] == 1) or
+                (ty < WORLD_H - 1 and world[ty + 1][tx] == 1)
+            )
+            if not has_vertical_neighbor:
+                continue
+
+        # Start a new vertical wall segment
+        segment = []
+
+        # Scan vertically (up and down) to find connected wall tiles
+        # First, scan downward
+        check_y = ty
+        while check_y < WORLD_H - 1 and not is_on_boundary(tx, check_y):
+            if (tx, check_y) in visited:
+                break
+
+            # Must be solid and have air on same side(s)
+            if world[check_y][tx] != 1:
+                break
+
+            # Check air on sides
+            curr_has_air_left = check_y < WORLD_H and tx > 0 and world[check_y][tx - 1] == 0
+            curr_has_air_right = check_y < WORLD_H and tx < WORLD_W - 1 and world[check_y][tx + 1] == 0
+
+            # Must maintain vertical wall property (air on at least one side)
+            if not (curr_has_air_left or curr_has_air_right):
+                break
+
+            # Add to segment
+            if (tx, check_y) in tile_map:
+                segment.append((tx, check_y))
+                visited.add((tx, check_y))
+
+            check_y += 1
+
+        # Then scan upward from one above start
+        check_y = ty - 1
+        while check_y > 0 and not is_on_boundary(tx, check_y):
+            if (tx, check_y) in visited:
+                break
+
+            # Must be solid and have air on same side(s)
+            if world[check_y][tx] != 1:
+                break
+
+            # Check air on sides
+            curr_has_air_left = check_y < WORLD_H and tx > 0 and world[check_y][tx - 1] == 0
+            curr_has_air_right = check_y < WORLD_H and tx < WORLD_W - 1 and world[check_y][tx + 1] == 0
+
+            # Must maintain vertical wall property
+            if not (curr_has_air_left or curr_has_air_right):
+                break
+
+            # Add to segment
+            if (tx, check_y) in tile_map:
+                segment.append((tx, check_y))
+                visited.add((tx, check_y))
+
+            check_y -= 1
+
+        # Only keep segments that are at least 2 tiles tall
+        if len(segment) >= 2:
+            wall_segments.append(segment)
+
+    # Step 3: Randomly select segments to be phaseable
+    phaseable = []
+    for segment in wall_segments:
+        if rng.random() < phaseable_wall_chance:
+            # Add all tiles in this segment to phaseable list
+            for (tx, ty) in segment:
+                if (tx, ty) in tile_map:
+                    phaseable.append(tile_map[(tx, ty)])
+
     return phaseable
 
 
