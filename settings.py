@@ -5,12 +5,19 @@ All game constants, toggles, and configuration parameters including power-ups.
 
 import pygame
 
+# Import environment configuration
+try:
+    import env_config
+    _env_loaded = True
+except ImportError:
+    _env_loaded = False
+
 # ================= SCREEN / RENDERING =================
 LOGICAL_W, LOGICAL_H = 1280, 720
 FPS = 60
 
 WINDOW_FLAGS = pygame.RESIZABLE
-VSYNC = 1
+VSYNC = env_config.VSYNC if _env_loaded else 1
 
 # ================= WORLD GRID =================
 TILE_SIZE = 32
@@ -36,11 +43,11 @@ FEATURES = {
     "fast_fall": True,
 }
 
-DEBUG_DEFAULT = False
-DEBUG_SHOW_GRID = True
-DEBUG_SHOW_BBOX = False
+DEBUG_DEFAULT = env_config.DEBUG_DEFAULT if _env_loaded else False
+DEBUG_SHOW_GRID = env_config.DEBUG_SHOW_GRID if _env_loaded else True
+DEBUG_SHOW_BBOX = env_config.DEBUG_SHOW_BBOX if _env_loaded else False
 
-DEFAULT_SEED = None
+DEFAULT_SEED = env_config.DEFAULT_SEED_OVERRIDE if _env_loaded and env_config.DEFAULT_SEED_OVERRIDE is not None else None
 
 # Difficulty and scoring (extended knobs)
 DIFFICULTY = "medium"
