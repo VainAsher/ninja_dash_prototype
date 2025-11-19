@@ -2,6 +2,9 @@
 REM Build script for STAGING environment
 REM Creates NinjaDash_STAGING.exe for QA testing
 
+REM Change to project root directory (parent of build_scripts)
+cd /d "%~dp0\.."
+
 echo ============================================
 echo Building Ninja Dash - STAGING Build
 echo ============================================

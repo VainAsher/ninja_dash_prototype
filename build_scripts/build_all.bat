@@ -3,6 +3,9 @@ REM Master build script - builds all three environments
 REM TEST, STAGING, and PRODUCTION
 REM Includes dependency checking and installation
 
+REM Change to project root directory (parent of build_scripts)
+cd /d "%~dp0\.."
+
 echo ============================================
 echo Building ALL Ninja Dash Environments
 echo ============================================

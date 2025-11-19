@@ -2,6 +2,9 @@
 REM Build script for TESTING environment
 REM Creates NinjaDash_TEST.exe with debug features enabled
 
+REM Change to project root directory (parent of build_scripts)
+cd /d "%~dp0\.."
+
 echo ============================================
 echo Building Ninja Dash - TESTING Build
 echo ============================================

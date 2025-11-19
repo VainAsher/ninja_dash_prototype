@@ -2,6 +2,9 @@
 REM Build script for PRODUCTION environment
 REM Creates NinjaDash.exe for distribution
 
+REM Change to project root directory (parent of build_scripts)
+cd /d "%~dp0\.."
+
 echo ============================================
 echo Building Ninja Dash - PRODUCTION Build
 echo ============================================
