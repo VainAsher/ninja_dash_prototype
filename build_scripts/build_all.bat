@@ -31,8 +31,8 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo [OK] pip found
 
-REM Check for PyInstaller
-pyinstaller --version >nul 2>&1
+REM Check for PyInstaller using Python module check (more reliable)
+python -m PyInstaller --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo WARNING: PyInstaller is not installed!
@@ -55,6 +55,18 @@ if %ERRORLEVEL% NEQ 0 (
 
         echo.
         echo [OK] Dependencies installed successfully
+        echo.
+
+        REM Verify installation worked
+        python -m PyInstaller --version >nul 2>&1
+        if %ERRORLEVEL% NEQ 0 (
+            echo ERROR: PyInstaller installation verification failed!
+            echo Please try closing this window and running the script again.
+            pause
+            exit /b 1
+        )
+
+        echo [OK] PyInstaller verified and ready
     ) else (
         echo.
         echo ERROR: PyInstaller is required to build executables
@@ -64,20 +76,6 @@ if %ERRORLEVEL% NEQ 0 (
     )
 ) else (
     echo [OK] PyInstaller found
-
-    REM Check if requirements are up to date
-    echo.
-    echo Checking if all dependencies are installed...
-    pip install -r requirements.txt --dry-run >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo.
-        echo Some dependencies may be missing or outdated.
-        set /p UPDATE="Update dependencies? (Y/N): "
-
-        if /i "%UPDATE%"=="Y" (
-            pip install -r requirements.txt
-        )
-    )
 )
 
 echo.
@@ -101,12 +99,12 @@ if exist dist\NinjaDash_TEST rmdir /s /q dist\NinjaDash_TEST
 if exist dist\NinjaDash_STAGING rmdir /s /q dist\NinjaDash_STAGING
 if exist dist\NinjaDash_PROD rmdir /s /q dist\NinjaDash_PROD
 
-REM Build TEST
+REM Build TEST - using python -m PyInstaller for reliability
 echo.
 echo ============================================
 echo [1/3] Building TEST environment...
 echo ============================================
-pyinstaller build_scripts\ninja_dash_test.spec --clean --noconfirm
+python -m PyInstaller build_scripts\ninja_dash_test.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: TEST build failed!
     pause
@@ -119,7 +117,7 @@ echo.
 echo ============================================
 echo [2/3] Building STAGING environment...
 echo ============================================
-pyinstaller build_scripts\ninja_dash_staging.spec --clean --noconfirm
+python -m PyInstaller build_scripts\ninja_dash_staging.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: STAGING build failed!
     pause
@@ -132,7 +130,7 @@ echo.
 echo ============================================
 echo [3/3] Building PRODUCTION environment...
 echo ============================================
-pyinstaller build_scripts\ninja_dash_prod.spec --clean --noconfirm
+python -m PyInstaller build_scripts\ninja_dash_prod.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: PRODUCTION build failed!
     pause
