@@ -15,16 +15,37 @@ The build system supports **three separate environments**, each with its own con
 ## Prerequisites
 
 1. **Python 3.8+** installed
-2. **PyInstaller** installed:
-   ```bash
-   pip install pyinstaller
-   ```
-3. **Game dependencies** installed:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **Dependencies** - The build scripts will automatically check for and offer to install missing dependencies, including:
+   - pygame (game engine)
+   - pyinstaller (executable builder)
+   - pytest (testing framework)
+
+### Easy Setup
+
+The easiest way to get started is to run the setup script:
+
+**Windows:**
+```batch
+setup_dependencies.bat
+```
+
+**Linux/Mac:**
+```bash
+./setup_dependencies.sh
+```
+
+This will check for Python and pip, then install all required dependencies automatically.
+
+### Manual Installation
+
+If you prefer to install dependencies manually:
+```bash
+pip install -r requirements.txt
+```
 
 ## Quick Start
+
+**Note:** All build scripts automatically check for dependencies and will prompt you to install them if missing. You don't need to install anything manually unless you want to!
 
 ### Windows
 

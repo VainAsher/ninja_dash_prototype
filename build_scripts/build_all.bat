@@ -1,9 +1,88 @@
 @echo off
 REM Master build script - builds all three environments
 REM TEST, STAGING, and PRODUCTION
+REM Includes dependency checking and installation
 
 echo ============================================
 echo Building ALL Ninja Dash Environments
+echo ============================================
+echo.
+
+REM Check for Python
+python --version >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Python is not installed or not in PATH!
+    echo Please install Python 3.8+ from https://www.python.org/
+    pause
+    exit /b 1
+)
+
+echo [OK] Python found:
+python --version
+
+REM Check for pip
+pip --version >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: pip is not installed or not in PATH!
+    echo Please reinstall Python with pip enabled
+    pause
+    exit /b 1
+)
+
+echo [OK] pip found
+
+REM Check for PyInstaller
+pyinstaller --version >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo WARNING: PyInstaller is not installed!
+    echo.
+    echo Would you like to install all required dependencies now?
+    echo This will run: pip install -r requirements.txt
+    echo.
+    set /p INSTALL="Install dependencies? (Y/N): "
+
+    if /i "%INSTALL%"=="Y" (
+        echo.
+        echo Installing dependencies...
+        pip install -r requirements.txt
+
+        if %ERRORLEVEL% NEQ 0 (
+            echo ERROR: Failed to install dependencies!
+            pause
+            exit /b 1
+        )
+
+        echo.
+        echo [OK] Dependencies installed successfully
+    ) else (
+        echo.
+        echo ERROR: PyInstaller is required to build executables
+        echo Please install it with: pip install -r requirements.txt
+        pause
+        exit /b 1
+    )
+) else (
+    echo [OK] PyInstaller found
+
+    REM Check if requirements are up to date
+    echo.
+    echo Checking if all dependencies are installed...
+    pip install -r requirements.txt --dry-run >nul 2>&1
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo Some dependencies may be missing or outdated.
+        set /p UPDATE="Update dependencies? (Y/N): "
+
+        if /i "%UPDATE%"=="Y" (
+            pip install -r requirements.txt
+        )
+    )
+)
+
+echo.
+echo ============================================
+echo Starting build process...
 echo ============================================
 echo.
 echo This will build:
@@ -25,7 +104,7 @@ if exist dist\NinjaDash_PROD rmdir /s /q dist\NinjaDash_PROD
 REM Build TEST
 echo.
 echo ============================================
-echo Building TEST environment...
+echo [1/3] Building TEST environment...
 echo ============================================
 pyinstaller build_scripts\ninja_dash_test.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
@@ -33,11 +112,12 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo [OK] TEST build completed
 
 REM Build STAGING
 echo.
 echo ============================================
-echo Building STAGING environment...
+echo [2/3] Building STAGING environment...
 echo ============================================
 pyinstaller build_scripts\ninja_dash_staging.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
@@ -45,11 +125,12 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo [OK] STAGING build completed
 
 REM Build PRODUCTION
 echo.
 echo ============================================
-echo Building PRODUCTION environment...
+echo [3/3] Building PRODUCTION environment...
 echo ============================================
 pyinstaller build_scripts\ninja_dash_prod.spec --clean --noconfirm
 if %ERRORLEVEL% NEQ 0 (
@@ -57,6 +138,7 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo [OK] PRODUCTION build completed
 
 echo.
 echo ============================================
