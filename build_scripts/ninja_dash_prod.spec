@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for PRODUCTION build
+PyInstaller spec file for PRODUCTION build - ONE-FILE MODE
 - Console window hidden
 - Clean player experience
-- All debug features disabled
+- Single executable file (no folder)
 - Optimized
 """
 
@@ -51,13 +51,17 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,      # Include binaries in exe (one-file mode)
+    a.zipfiles,      # Include zipfiles in exe (one-file mode)
+    a.datas,         # Include datas in exe (one-file mode)
     [],
-    exclude_binaries=True,
     name='NinjaDash',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,  # No console for production - clean experience
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -66,20 +70,8 @@ exe = EXE(
     entitlements_file=None,
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='NinjaDash_PROD',
-)
-
-# Create environment marker file in the dist folder after collection
-import shutil
-marker_file = os.path.join(DISTPATH, 'NinjaDash_PROD', '.env_prod')
-os.makedirs(os.path.dirname(marker_file), exist_ok=True)
+# Create environment marker file next to the exe
+marker_file = os.path.join(DISTPATH, '.env_prod')
+os.makedirs(DISTPATH, exist_ok=True)
 with open(marker_file, 'w') as f:
     f.write('prod')

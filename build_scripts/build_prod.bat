@@ -67,7 +67,8 @@ echo.
 REM Clean previous build
 echo Cleaning previous PRODUCTION build...
 if exist build rmdir /s /q build
-if exist dist\NinjaDash_PROD rmdir /s /q dist\NinjaDash_PROD
+if exist dist\NinjaDash.exe del /f /q dist\NinjaDash.exe
+if exist dist\.env_prod del /f /q dist\.env_prod
 
 REM Run PyInstaller with production spec - using python -m for reliability
 echo.
@@ -85,9 +86,10 @@ echo.
 echo ============================================
 echo Build completed successfully!
 echo ============================================
-echo Output: dist\NinjaDash_PROD\
-echo Executable: dist\NinjaDash_PROD\NinjaDash.exe
-echo ============================================
+echo Single-file executable: dist\NinjaDash.exe
+echo.
+echo This is a standalone executable that includes all dependencies.
+echo Just distribute the .exe file - no folder needed!
 echo.
 echo NOTE: This is the PRODUCTION build for distribution.
 echo Console is hidden and all debug features are disabled.

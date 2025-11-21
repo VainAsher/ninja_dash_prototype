@@ -58,7 +58,8 @@ echo ""
 # Clean previous build
 echo "Cleaning previous PRODUCTION build..."
 rm -rf build
-rm -rf dist/NinjaDash_PROD
+rm -f dist/NinjaDash
+rm -f dist/.env_prod
 
 # Run PyInstaller with production spec
 echo ""
@@ -75,9 +76,10 @@ echo ""
 echo "============================================"
 echo "Build completed successfully!"
 echo "============================================"
-echo "Output: dist/NinjaDash_PROD/"
-echo "Executable: dist/NinjaDash_PROD/NinjaDash"
-echo "============================================"
+echo "Single-file executable: dist/NinjaDash"
+echo ""
+echo "This is a standalone executable that includes all dependencies."
+echo "Just distribute the file - no folder needed!"
 echo ""
 echo "NOTE: This is the PRODUCTION build for distribution."
 echo "Console is hidden and all debug features are disabled."

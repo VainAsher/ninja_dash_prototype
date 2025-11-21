@@ -101,8 +101,10 @@ read -p "Press Enter to continue..."
 echo "Cleaning all previous builds..."
 rm -rf build
 rm -rf dist/NinjaDash_TEST
-rm -rf dist/NinjaDash_STAGING
-rm -rf dist/NinjaDash_PROD
+rm -f dist/NinjaDash_STAGING
+rm -f dist/NinjaDash
+rm -f dist/.env_staging
+rm -f dist/.env_prod
 
 # Build TEST
 echo ""
@@ -146,9 +148,12 @@ echo "ALL BUILDS COMPLETED SUCCESSFULLY!"
 echo "============================================"
 echo ""
 echo "Built executables:"
-echo "  TEST:       dist/NinjaDash_TEST/NinjaDash_TEST"
-echo "  STAGING:    dist/NinjaDash_STAGING/NinjaDash_STAGING"
-echo "  PRODUCTION: dist/NinjaDash_PROD/NinjaDash"
+echo "  TEST:       dist/NinjaDash_TEST/NinjaDash_TEST (folder)"
+echo "  STAGING:    dist/NinjaDash_STAGING (single file)"
+echo "  PRODUCTION: dist/NinjaDash (single file)"
+echo ""
+echo "Note: STAGING and PRODUCTION are single-file executables."
+echo "      TEST is a folder with multiple files (easier to debug)."
 echo ""
 echo "============================================"
 echo ""

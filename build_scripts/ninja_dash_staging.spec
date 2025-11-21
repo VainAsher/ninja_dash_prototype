@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for STAGING build
+PyInstaller spec file for STAGING build - ONE-FILE MODE
 - Console window visible for QA
 - Production-like settings
-- QA testing helpers enabled
+- Single executable file (no folder)
 """
 
 import os
@@ -50,13 +50,17 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,      # Include binaries in exe (one-file mode)
+    a.zipfiles,      # Include zipfiles in exe (one-file mode)
+    a.datas,         # Include datas in exe (one-file mode)
     [],
-    exclude_binaries=True,
     name='NinjaDash_STAGING',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=True,  # Console visible for QA
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -65,20 +69,8 @@ exe = EXE(
     entitlements_file=None,
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='NinjaDash_STAGING',
-)
-
-# Create environment marker file in the dist folder after collection
-import shutil
-marker_file = os.path.join(DISTPATH, 'NinjaDash_STAGING', '.env_staging')
-os.makedirs(os.path.dirname(marker_file), exist_ok=True)
+# Create environment marker file next to the exe
+marker_file = os.path.join(DISTPATH, '.env_staging')
+os.makedirs(DISTPATH, exist_ok=True)
 with open(marker_file, 'w') as f:
     f.write('staging')

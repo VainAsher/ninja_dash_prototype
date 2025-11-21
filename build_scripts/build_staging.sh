@@ -58,7 +58,8 @@ echo ""
 # Clean previous build
 echo "Cleaning previous STAGING build..."
 rm -rf build
-rm -rf dist/NinjaDash_STAGING
+rm -f dist/NinjaDash_STAGING
+rm -f dist/.env_staging
 
 # Run PyInstaller with staging spec
 echo ""
@@ -75,7 +76,9 @@ echo ""
 echo "============================================"
 echo "Build completed successfully!"
 echo "============================================"
-echo "Output: dist/NinjaDash_STAGING/"
-echo "Executable: dist/NinjaDash_STAGING/NinjaDash_STAGING"
+echo "Single-file executable: dist/NinjaDash_STAGING"
+echo ""
+echo "This is a standalone executable that includes all dependencies."
+echo "Just distribute the file - no folder needed!"
 echo "============================================"
 echo ""

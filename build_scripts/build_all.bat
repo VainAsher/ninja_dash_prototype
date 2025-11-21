@@ -99,8 +99,10 @@ REM Clean all previous builds
 echo Cleaning all previous builds...
 if exist build rmdir /s /q build
 if exist dist\NinjaDash_TEST rmdir /s /q dist\NinjaDash_TEST
-if exist dist\NinjaDash_STAGING rmdir /s /q dist\NinjaDash_STAGING
-if exist dist\NinjaDash_PROD rmdir /s /q dist\NinjaDash_PROD
+if exist dist\NinjaDash_STAGING.exe del /f /q dist\NinjaDash_STAGING.exe
+if exist dist\NinjaDash.exe del /f /q dist\NinjaDash.exe
+if exist dist\.env_staging del /f /q dist\.env_staging
+if exist dist\.env_prod del /f /q dist\.env_prod
 
 REM Build TEST - using python -m PyInstaller for reliability
 echo.
@@ -147,9 +149,12 @@ echo ALL BUILDS COMPLETED SUCCESSFULLY!
 echo ============================================
 echo.
 echo Built executables:
-echo   TEST:       dist\NinjaDash_TEST\NinjaDash_TEST.exe
-echo   STAGING:    dist\NinjaDash_STAGING\NinjaDash_STAGING.exe
-echo   PRODUCTION: dist\NinjaDash_PROD\NinjaDash.exe
+echo   TEST:       dist\NinjaDash_TEST\NinjaDash_TEST.exe (folder)
+echo   STAGING:    dist\NinjaDash_STAGING.exe (single file)
+echo   PRODUCTION: dist\NinjaDash.exe (single file)
+echo.
+echo Note: STAGING and PRODUCTION are single-file executables.
+echo       TEST is a folder with multiple files (easier to debug).
 echo.
 echo ============================================
 echo.
