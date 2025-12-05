@@ -69,6 +69,7 @@ from states.meta.highscores import HighscoresState
 from states.meta.unlocks import UnlocksState
 from states.meta.name_entry import NameEntryState
 from states.meta.seed_entry import SeedEntryState
+from states.campaign import LanternHub, HollowHub, EmberHub, SkyHub
 
 from ui.hud_components import (
     ScoreSection,
@@ -503,6 +504,11 @@ class Game:
             "name_entry": NameEntryState(self),
             "seed_entry": SeedEntryState(self),
             "controls": ControlsViewerState(self),
+            # Campaign hubs
+            "lantern_hub": LanternHub(self),
+            "hollow_hub": HollowHub(self),
+            "ember_hub": EmberHub(self),
+            "sky_hub": SkyHub(self),
         }
 
     def change_state(self, name: str) -> None:
@@ -723,15 +729,13 @@ class Game:
         self.game_time = 0.0
         self.seed = None
 
-        # For now, start directly into Act 0 mission
-        # Later in Stage 4, we'll add a hub state here
+        # Start in Lantern Hub (Act 0)
         self.campaign_state.act = 0
         self.campaign_state.mission_index = 0
 
-        # Build level and start playing
-        self.build_level()
-        self.change_state("play")
-        print("🎮 Campaign started: Lantern Heights - Act 0")
+        # Go to Lantern Hub instead of directly to play
+        self.change_state("lantern_hub")
+        print("🎮 Campaign started: Lantern Heights Hub")
 
     def set_campaign_act(self, act: int, mission: int = 0) -> None:
         """
@@ -765,6 +769,26 @@ class Game:
         print(f"   Biome: {self.current_biome}")
         print(f"   Base abilities: {get_base_abilities_for_act(self.campaign_state)}")
 
+    def get_hub_for_act(self, act: int) -> str:
+        """Get the hub state name for a given act."""
+        hub_map = {
+            0: "lantern_hub",
+            1: "lantern_hub",  # Veil Maiden leads back to Lantern before hollowing
+            2: "hollow_hub",
+            3: "ember_hub",
+            4: "sky_hub",
+        }
+        return hub_map.get(act, "lantern_hub")
+
+    def return_to_hub(self) -> None:
+        """Return to the appropriate hub for the current act."""
+        if not self.campaign_mode:
+            return
+
+        hub_state = self.get_hub_for_act(self.campaign_state.act)
+        self.change_state(hub_state)
+        print(f"🏛️  Returned to hub: {hub_state}")
+
     def restart_level(self) -> None:
         self.build_level()
         self.change_state("play")
@@ -792,19 +816,34 @@ class Game:
             self.game_time
         )
 
-        self.next_level()
+        if self.campaign_mode:
+            # Campaign mode: Advance mission and return to hub
+            self.campaign_state.mission_index += 1
+            self.return_to_hub()
+        else:
+            # Arcade mode: Continue to next level
+            self.next_level()
 
     def on_game_over(self) -> None:
-        # Delete save file on game over (death consequences)
-        self.unlock_mgr.delete_save()
-
-        if qualifies_for_highscore(self.total_score):
-            self.pending_score = self.total_score
-            self.pending_level = self.level_index
-            self.pending_difficulty = self.difficulty
-            self.change_state("name_entry")
+        if self.campaign_mode:
+            # Campaign mode: Return to hub on death (keep campaign progress)
+            # Reset mission progress but keep abilities and scrolls
+            self.campaign_state.mission_index = 0
+            self.lives = PLAYER_LIVES  # Restore lives at hub
+            print("💀 Mission failed. Returning to hub...")
+            self.return_to_hub()
         else:
-            self.change_state("gameover")        
+            # Arcade mode: Game over screen and highscore
+            # Delete save file on game over (death consequences)
+            self.unlock_mgr.delete_save()
+
+            if qualifies_for_highscore(self.total_score):
+                self.pending_score = self.total_score
+                self.pending_level = self.level_index
+                self.pending_difficulty = self.difficulty
+                self.change_state("name_entry")
+            else:
+                self.change_state("gameover")        
 
     # ---------------- Top-level loop hooks ----------------
 
