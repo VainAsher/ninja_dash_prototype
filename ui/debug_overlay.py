@@ -26,7 +26,8 @@ class DebugOverlay:
     Toggle with F3 key or programmatically.
     """
 
-    # Display modes
+    # Display modes (cycle with F3)
+    MODE_OFF = "off"
     MODE_MINIMAL = "minimal"
     MODE_FULL = "full"
 
@@ -45,7 +46,7 @@ class DebugOverlay:
 
         # Visibility and mode
         self.visible = False
-        self.mode = self.MODE_FULL
+        self.mode = self.MODE_OFF  # Start with overlay off
 
         # Visual settings
         self.panel_width = 320
@@ -66,18 +67,27 @@ class DebugOverlay:
         self.modifier_color = (255, 100, 255)  # For gameplay modifiers
 
     def toggle(self):
-        """Toggle overlay visibility."""
-        self.visible = not self.visible
+        """Cycle through display modes: OFF → MINIMAL → FULL → OFF."""
+        if self.mode == self.MODE_OFF:
+            self.mode = self.MODE_MINIMAL
+            self.visible = True
+        elif self.mode == self.MODE_MINIMAL:
+            self.mode = self.MODE_FULL
+            self.visible = True
+        else:  # MODE_FULL
+            self.mode = self.MODE_OFF
+            self.visible = False
         return self.visible
 
     def set_visible(self, visible: bool):
         """Set overlay visibility."""
         self.visible = visible
+        if not visible:
+            self.mode = self.MODE_OFF
 
     def toggle_mode(self):
-        """Toggle between minimal and full display modes."""
-        self.mode = self.MODE_MINIMAL if self.mode == self.MODE_FULL else self.MODE_FULL
-        return self.mode
+        """Legacy method - now cycles through modes (same as toggle)."""
+        return self.toggle()
 
     def render(self, surface: pygame.Surface, player: Any, modifiers=None, seed=None):
         """
