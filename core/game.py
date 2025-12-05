@@ -52,6 +52,8 @@ from entities.enemy_manager import EnemyManager
 from core.combat_system import DamageNumberManager
 from entities.player_entity import PlayerController
 
+from core.campaign import CampaignState
+
 from states.base import GameState
 from states.gameplay.play import PlayState
 from states.gameplay.pause import PauseState
@@ -405,6 +407,10 @@ class Game:
         self.pending_level: int | None = None
         self.pending_difficulty: str | None = None
 
+        # Campaign mode
+        self.campaign_mode: bool = False
+        self.campaign_state: CampaignState = CampaignState()
+        self.current_biome: str = "lantern"  # Current biome for rendering
 
         # World / entities
         self.world: Any = None
@@ -626,6 +632,29 @@ class Game:
         self.build_level()
         self.change_state("play")
         print(f"📂 Game loaded: Level {self.level_index}, {self.lives} lives, {self.total_score} score")
+
+    def start_campaign(self) -> None:
+        """Start a new campaign playthrough (Hollowed Ninja story mode)."""
+        # Enable campaign mode
+        self.campaign_mode = True
+        self.campaign_state = CampaignState()
+
+        # Reset game state
+        self.level_index = 1
+        self.total_score = 0
+        self.lives = PLAYER_LIVES
+        self.game_time = 0.0
+        self.seed = None
+
+        # For now, start directly into Act 0 mission
+        # Later in Stage 4, we'll add a hub state here
+        self.campaign_state.act = 0
+        self.campaign_state.mission_index = 0
+
+        # Build level and start playing
+        self.build_level()
+        self.change_state("play")
+        print("🎮 Campaign started: Lantern Heights - Act 0")
 
     def restart_level(self) -> None:
         self.build_level()
