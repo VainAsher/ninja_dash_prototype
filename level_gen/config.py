@@ -6,7 +6,7 @@ Replaces the dictionary-based diff_cfg parameter throughout the codebase.
 """
 
 from dataclasses import dataclass, field
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Literal
 
 from .constants import (
     DEFAULT_VERTICALITY_BIAS,
@@ -129,6 +129,10 @@ class LevelGenConfig:
     coin_ratio: float = 0.5
     multiplier: float = 1.0
 
+    # Campaign / biome metadata
+    biome: str = "lantern"  # "lantern", "hollow", "ember", "sky"
+    exit_style: str = "right_edge"  # "right_edge", "center_floor", "top_center", "world_top"
+
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'LevelGenConfig':
         """
@@ -196,6 +200,8 @@ class LevelGenConfig:
             'enable_ability_challenges': self.enable_ability_challenges,
             'coin_ratio': self.coin_ratio,
             'multiplier': self.multiplier,
+            'biome': self.biome,
+            'exit_style': self.exit_style,
         }
 
     def validate(self) -> None:
@@ -330,3 +336,193 @@ EXPERT_CONFIG = LevelGenConfig(
     coin_ratio=0.85,
     multiplier=3.0,
 )
+
+
+# ============================================================================
+# CAMPAIGN ACT GEOMETRY PRESETS
+# ============================================================================
+# Per-act level generation configs for Hollowed Ninja campaign mode
+# Keyed by (act, mission_index) tuples
+
+ACT_GEOMETRY: Dict[Tuple[int, int], LevelGenConfig] = {
+    # ===== ACT 0: LANTERN HEIGHTS =====
+    # Welcoming, mostly horizontal, teaches basic movement
+    (0, 0): LevelGenConfig(
+        verticality_bias=0.25,
+        branchiness=0.15,
+        platform_band_step=4,
+        platform_len_range=(4, 8),
+        pillar_chance=0.20,
+        hole_chance=0.10,
+        hazard_rate=0.015,
+        enemy_density=0.01,
+        enemy_min_separation=20,
+        coin_count_range=(10, 18),
+        health_density=0.010,
+        lives_per_level=2,
+        powerup_density=0.004,
+        phaseable_wall_chance=0.25,
+        coin_ratio=0.40,
+        multiplier=1.0,
+        biome="lantern",
+        exit_style="right_edge",
+    ),
+
+    # ===== ACT 1: VEIL MAIDEN BOSS FIGHT =====
+    # Could be a special arena level or use similar to Act 0
+    (1, 0): LevelGenConfig(
+        verticality_bias=0.35,
+        branchiness=0.20,
+        platform_band_step=4,
+        platform_len_range=(4, 7),
+        pillar_chance=0.25,
+        hole_chance=0.15,
+        hazard_rate=0.02,
+        enemy_density=0.015,
+        enemy_min_separation=20,
+        coin_count_range=(12, 20),
+        health_density=0.008,
+        lives_per_level=2,
+        powerup_density=0.003,
+        phaseable_wall_chance=0.20,
+        coin_ratio=0.45,
+        multiplier=1.2,
+        biome="lantern",  # Still in Lantern area
+        exit_style="center_floor",  # Boss arena exit
+    ),
+
+    # ===== ACT 2: HOLLOW DEPTHS =====
+    # Cramped, more vertical, harsher after being hollowed
+    (2, 0): LevelGenConfig(
+        verticality_bias=0.7,
+        branchiness=0.3,
+        platform_band_step=3,
+        platform_len_range=(3, 6),
+        pillar_chance=0.45,
+        hole_chance=0.3,
+        hazard_rate=0.04,
+        enemy_density=0.04,
+        enemy_min_separation=20,
+        coin_count_range=(10, 16),
+        health_density=0.004,
+        lives_per_level=1,
+        powerup_density=0.002,
+        phaseable_wall_chance=0.15,
+        coin_ratio=0.5,
+        multiplier=1.2,
+        biome="hollow",
+        exit_style="center_floor",
+    ),
+
+    # Act 2, Mission 1 - Deeper Hollow
+    (2, 1): LevelGenConfig(
+        verticality_bias=0.75,
+        branchiness=0.35,
+        platform_band_step=3,
+        platform_len_range=(3, 5),
+        pillar_chance=0.50,
+        hole_chance=0.35,
+        hazard_rate=0.045,
+        enemy_density=0.045,
+        enemy_min_separation=20,
+        coin_count_range=(12, 18),
+        health_density=0.003,
+        lives_per_level=1,
+        powerup_density=0.002,
+        phaseable_wall_chance=0.12,
+        coin_ratio=0.55,
+        multiplier=1.3,
+        biome="hollow",
+        exit_style="top_center",
+    ),
+
+    # ===== ACT 3: EMBER MONASTERY =====
+    # Balanced, monastery-style, rebuilding power
+    (3, 0): LevelGenConfig(
+        verticality_bias=0.5,
+        branchiness=0.35,
+        platform_band_step=4,
+        platform_len_range=(4, 9),
+        pillar_chance=0.35,
+        hole_chance=0.18,
+        hazard_rate=0.035,
+        enemy_density=0.035,
+        enemy_min_separation=20,
+        coin_count_range=(16, 24),
+        health_density=0.004,
+        lives_per_level=1,
+        powerup_density=0.003,
+        phaseable_wall_chance=0.2,
+        coin_ratio=0.65,
+        multiplier=1.6,
+        biome="ember",
+        exit_style="right_edge",
+    ),
+
+    # Act 3, Mission 1 - Upper Monastery
+    (3, 1): LevelGenConfig(
+        verticality_bias=0.55,
+        branchiness=0.40,
+        platform_band_step=4,
+        platform_len_range=(4, 10),
+        pillar_chance=0.38,
+        hole_chance=0.20,
+        hazard_rate=0.038,
+        enemy_density=0.038,
+        enemy_min_separation=20,
+        coin_count_range=(18, 26),
+        health_density=0.003,
+        lives_per_level=1,
+        powerup_density=0.003,
+        phaseable_wall_chance=0.18,
+        coin_ratio=0.68,
+        multiplier=1.7,
+        biome="ember",
+        exit_style="top_center",
+    ),
+
+    # ===== ACT 4: SKYROAD SUMMIT =====
+    # Very vertical, summit exit at world top
+    (4, 0): LevelGenConfig(
+        verticality_bias=0.9,
+        branchiness=0.2,
+        platform_band_step=3,
+        platform_len_range=(4, 7),
+        pillar_chance=0.2,
+        hole_chance=0.12,
+        hazard_rate=0.03,
+        enemy_density=0.035,
+        enemy_min_separation=20,
+        coin_count_range=(18, 28),
+        health_density=0.003,
+        lives_per_level=1,
+        powerup_density=0.003,
+        phaseable_wall_chance=0.12,
+        coin_ratio=0.7,
+        multiplier=2.0,
+        biome="sky",
+        exit_style="world_top",
+    ),
+
+    # Act 4, Mission 1 - Peak Ascent
+    (4, 1): LevelGenConfig(
+        verticality_bias=0.95,
+        branchiness=0.15,
+        platform_band_step=3,
+        platform_len_range=(3, 6),
+        pillar_chance=0.15,
+        hole_chance=0.10,
+        hazard_rate=0.028,
+        enemy_density=0.032,
+        enemy_min_separation=20,
+        coin_count_range=(20, 30),
+        health_density=0.002,
+        lives_per_level=1,
+        powerup_density=0.003,
+        phaseable_wall_chance=0.10,
+        coin_ratio=0.72,
+        multiplier=2.2,
+        biome="sky",
+        exit_style="world_top",
+    ),
+}
