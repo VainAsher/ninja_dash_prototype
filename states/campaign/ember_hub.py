@@ -8,7 +8,7 @@ Forge, training grounds, and wise monks.
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base_hub import CampaignHub, NPC, MissionBoard
+from .base_hub import CampaignHub, NPC, MissionBoard, Shop
 
 if TYPE_CHECKING:
     from core.game import Game
@@ -48,15 +48,11 @@ class EmberHub(CampaignHub):
             color=(255, 120, 40)  # Bright orange
         )
         smith.is_unlocked = self.game.campaign_state.npc_unlocked.get("smith_monk", True)  # Start unlocked for testing
-        smith.dialogue = [
-            "Smith Monk: Welcome to the forge, warrior.",
-            "Smith Monk: I can see you've been through much.",
-            "Smith Monk: Your equipment needs work. I can help.",
-            "Smith Monk: Bring me coins from your missions...",
-            "Smith Monk: And I'll forge you proper ninja gear.",
-            "Smith Monk: [Equipment upgrades coming in Stage 5!]",
-        ]
+        # Smith Monk is now a shop! (No dialogue needed, opens shop directly)
         self.npcs.append(smith)
+
+        # Register Smith Monk as a shop
+        self.shops["Smith Monk"] = Shop(smith)
 
         # Listening Elder (lore and guidance)
         elder = NPC(

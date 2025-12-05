@@ -663,6 +663,10 @@ class Game:
         self.player = Player(sx, sy)
         self.player_controller = PlayerController(self.player)
 
+        # Apply campaign stat bonuses
+        if self.campaign_mode:
+            self._apply_campaign_stats()
+
         # Reset run timer for this level
         self.game_time = 0.0
 
@@ -789,6 +793,29 @@ class Game:
         self.change_state(hub_state)
         print(f"🏛️  Returned to hub: {hub_state}")
 
+    def _apply_campaign_stats(self) -> None:
+        """Apply campaign stat bonuses to player (HP, SPD, STG, DEF)."""
+        if not self.campaign_mode or not self.player:
+            return
+
+        # Get total stats from campaign state
+        stats = self.campaign_state.get_total_stats()
+
+        # Apply HP to player health
+        from settings import PLAYER_MAX_HEALTH
+        base_health_ratio = self.player.health / PLAYER_MAX_HEALTH
+        self.player.health = int(stats.hp * base_health_ratio)  # Maintain current health percentage
+
+        # Apply SPD to player max speed
+        from settings import MAX_RUN_SPEED
+        self.player.user_max_speed = MAX_RUN_SPEED * stats.spd
+
+        # Store STG and DEF for combat calculations (add to player if not exists)
+        self.player.campaign_strength = stats.stg
+        self.player.campaign_defense = stats.def_
+
+        print(f"⚔️  Campaign stats applied: HP={stats.hp}, SPD={stats.spd:.2f}x, STG={stats.stg}, DEF={stats.def_}")
+
     def restart_level(self) -> None:
         self.build_level()
         self.change_state("play")
@@ -817,8 +844,13 @@ class Game:
         )
 
         if self.campaign_mode:
-            # Campaign mode: Advance mission and return to hub
+            # Campaign mode: Advance mission, award currency, and return to hub
             self.campaign_state.mission_index += 1
+
+            # Award currency based on mission difficulty
+            currency_reward = 50 + (self.campaign_state.act * 25)
+            self.campaign_state.add_currency(currency_reward)
+
             self.return_to_hub()
         else:
             # Arcade mode: Continue to next level
