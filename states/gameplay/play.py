@@ -26,11 +26,13 @@ class PlayState(GameState):
             elif event.key == pygame.K_F1:
                 self.show_controls_overlay = not self.show_controls_overlay
                 print(f"[INFO] Controls Overlay: {'ON' if self.show_controls_overlay else 'OFF'}")
-            # F3: Toggle debug overlay
+            # F3: Cycle debug overlay modes (OFF → MINIMAL → FULL → OFF)
             elif event.key == pygame.K_F3:
                 if hasattr(self.game, 'debug_overlay'):
-                    visible = self.game.debug_overlay.toggle()
-                    print(f"[DEBUG] Debug Overlay: {'ON' if visible else 'OFF'}")
+                    self.game.debug_overlay.toggle()
+                    mode_names = {"off": "OFF", "minimal": "MINIMAL", "full": "FULL"}
+                    mode = mode_names.get(self.game.debug_overlay.mode, "UNKNOWN")
+                    print(f"[DEBUG] Debug Overlay Mode: {mode}")
                 if hasattr(self.game, 'modifiers'):
                     self.game.modifiers.toggle_debug_overlay()
             # F4: Toggle hitboxes

@@ -21,17 +21,23 @@ class OptionsState(GameState):
     """Player-focused options menu with gameplay and ability settings."""
 
     # Tab identifiers
+    TAB_AUDIO = "audio"
+    TAB_VIDEO = "video"
     TAB_GAMEPLAY = "gameplay"
     TAB_ABILITIES = "abilities"
+    TAB_CONTROLS = "controls"
 
     def __init__(self, game):
         super().__init__(game)
         self.modifiers = get_modifiers()
 
-        # Tab management
+        # Tab management (expanded with Audio, Video, Controls)
         self.tabs = [
+            (self.TAB_AUDIO, "Audio"),
+            (self.TAB_VIDEO, "Video"),
             (self.TAB_GAMEPLAY, "Gameplay"),
             (self.TAB_ABILITIES, "Abilities"),
+            (self.TAB_CONTROLS, "Controls"),
         ]
         self.current_tab = self.TAB_GAMEPLAY
 
@@ -265,7 +271,129 @@ class OptionsState(GameState):
                     'action': lambda: self.modifiers.reset_all_abilities(),
                 },
             ],
+            self.TAB_AUDIO: [
+                {
+                    'type': 'slider',
+                    'label': 'Master Volume',
+                    'description': 'Overall volume for all game sounds',
+                    'getter': lambda: getattr(self.game, 'master_volume', 0.8),
+                    'setter': lambda v: setattr(self.game, 'master_volume', v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'Music Volume',
+                    'description': 'Background music volume',
+                    'getter': lambda: getattr(self.game, 'music_volume', 0.6),
+                    'setter': lambda v: setattr(self.game, 'music_volume', v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'slider',
+                    'label': 'SFX Volume',
+                    'description': 'Sound effects volume',
+                    'getter': lambda: getattr(self.game, 'sfx_volume', 0.8),
+                    'setter': lambda v: setattr(self.game, 'sfx_volume', v),
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.05,
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Mute All',
+                    'description': 'Mute all game audio',
+                    'key': 'mute_all',
+                    'getter': lambda: getattr(self.game, 'audio_muted', False),
+                    'setter': lambda v: setattr(self.game, 'audio_muted', v),
+                },
+            ],
+            self.TAB_VIDEO: [
+                {
+                    'type': 'checkbox',
+                    'label': 'Fullscreen',
+                    'description': 'Toggle fullscreen mode (restart may be required)',
+                    'key': 'fullscreen',
+                    'getter': lambda: getattr(self.game, 'fullscreen', False),
+                    'setter': lambda v: setattr(self.game, 'fullscreen', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'VSync',
+                    'description': 'Vertical sync to reduce screen tearing',
+                    'key': 'vsync',
+                    'getter': lambda: getattr(self.game, 'vsync', True),
+                    'setter': lambda v: setattr(self.game, 'vsync', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Show FPS',
+                    'description': 'Display frames per second counter',
+                    'key': 'show_fps',
+                    'getter': lambda: getattr(self.game, 'show_fps', False),
+                    'setter': lambda v: setattr(self.game, 'show_fps', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Particle Effects',
+                    'description': 'Enable/disable particle visual effects',
+                    'key': 'particles',
+                    'getter': lambda: getattr(self.game, 'particles_enabled', True),
+                    'setter': lambda v: setattr(self.game, 'particles_enabled', v),
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Screen Shake',
+                    'description': 'Camera shake on impacts and actions',
+                    'key': 'screen_shake',
+                    'getter': lambda: getattr(self.game, 'screen_shake_enabled', True),
+                    'setter': lambda v: setattr(self.game, 'screen_shake_enabled', v),
+                },
+                {
+                    'type': 'info',
+                    'label': 'Colorblind Mode',
+                    'description': 'Accessible color schemes (coming soon)',
+                },
+            ],
+            self.TAB_CONTROLS: [
+                {
+                    'type': 'button',
+                    'label': 'Configure Controls',
+                    'description': 'Customize key bindings and input settings',
+                    'action': lambda: self.game.change_state("controls"),
+                },
+                {
+                    'type': 'button',
+                    'label': 'Reset to Defaults',
+                    'description': 'Restore default control scheme',
+                    'action': lambda: self._reset_controls(),
+                },
+                {
+                    'type': 'info',
+                    'label': 'Movement',
+                    'description': 'Arrow Keys or WASD',
+                },
+                {
+                    'type': 'info',
+                    'label': 'Jump',
+                    'description': 'Space, W, or Up Arrow',
+                },
+                {
+                    'type': 'info',
+                    'label': 'Abilities',
+                    'description': 'Q, E, C, V, Shift - See Controls menu for full list',
+                },
+            ],
         }
+
+    def _reset_controls(self):
+        """Reset controls to default bindings."""
+        from controls import get_controls_manager
+        controls = get_controls_manager()
+        controls.reset_to_defaults()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handle input events."""
