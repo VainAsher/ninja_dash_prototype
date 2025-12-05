@@ -261,22 +261,46 @@ def _place_exit(
     world: List[List[int]],
     path_mask: List[List[bool]],
     end_room: Tuple[int, int],
-    floor_y: int
+    floor_y: int,
+    exit_style: str = "right_edge"
 ) -> None:
     """
-    Place the exit at the end of the path.
+    Place the exit at the end of the path using specified style.
 
     Args:
         world: 2D tile array (modified in-place)
         path_mask: 2D bool array marking critical path (modified in-place)
         end_room: Tuple of (x, y) for the ending room
         floor_y: Floor y-coordinate of the ending room
+        exit_style: Style of exit placement:
+            - "right_edge": Exit at right edge of room (default, arcade mode)
+            - "center_floor": Exit at center of room floor (boss arenas)
+            - "top_center": Exit near top of room (vertical ascent)
+            - "world_top": Exit at very top of world (summit levels)
     """
     end_rx, end_ry = end_room
     base_x = end_rx * ROOM_W
 
-    ex_x = base_x + ROOM_W - 3
-    ex_y = floor_y - 1
+    if exit_style == "right_edge":
+        # Classic: right edge of room
+        ex_x = base_x + ROOM_W - 3
+        ex_y = floor_y - 1
+    elif exit_style == "center_floor":
+        # Boss arena: center of room floor
+        ex_x = base_x + ROOM_W // 2
+        ex_y = floor_y - 1
+    elif exit_style == "top_center":
+        # Vertical: near top of room (3 tiles from ceiling)
+        ex_x = base_x + ROOM_W // 2
+        ex_y = max(floor_y - (ROOM_H - 3), 2)
+    elif exit_style == "world_top":
+        # Summit: very top of world
+        ex_x = base_x + ROOM_W // 2
+        ex_y = 1
+    else:
+        # Fallback to right edge
+        ex_x = base_x + ROOM_W - 3
+        ex_y = floor_y - 1
 
     world[ex_y][ex_x] = 2
 
@@ -284,7 +308,7 @@ def _place_exit(
         path_mask[floor_y][ex_x] = True
 
 
-def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]], List[List[bool]]]:
+def build_world_from_path(path: List[Tuple[int, int]], exit_style: str = "right_edge") -> Tuple[List[List[int]], List[List[bool]]]:
     """Build tile world from room path with floors, connections, and exit.
 
     Constructs a complete playable level from a sequence of room coordinates by:
@@ -298,6 +322,11 @@ def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]],
               from start to goal. Typically starts at (0, ROOM_ROWS-1) and ends
               at (ROOM_COLS-1, 0). Adjacent rooms must differ by exactly 1 in
               either x or y coordinate.
+        exit_style: Style of exit placement (default: "right_edge")
+            - "right_edge": Exit at right edge of room
+            - "center_floor": Exit at center of room floor
+            - "top_center": Exit near top of room
+            - "world_top": Exit at very top of world
 
     Returns:
         Tuple of (world, path_mask):
@@ -325,7 +354,7 @@ def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]],
         - Room floors are placed at: room_base_y + ROOM_H - ROOM_FLOOR_OFFSET
         - Horizontal connections span the gap between room edges
         - Vertical connections create shaft with alternating platform steps
-        - Exit is always placed at right edge of final room
+        - Exit placement depends on exit_style parameter
     """
     # Initialize world and path mask
     world = [[0 for _ in range(WORLD_W)] for _ in range(WORLD_H)]
@@ -371,7 +400,7 @@ def build_world_from_path(path: List[Tuple[int, int]]) -> Tuple[List[List[int]],
             _connect_vertical_rooms(world, path_mask, rx, ry, nx, ny, fy_high, fy_low)
 
     # Place exit at end of path
-    _place_exit(world, path_mask, path[-1], floor_y_for[path[-1]])
+    _place_exit(world, path_mask, path[-1], floor_y_for[path[-1]], exit_style)
 
     return world, path_mask
 
@@ -668,7 +697,7 @@ def generate_level(
         path = [(x, ROOM_ROWS - 1) for x in range(ROOM_COLS)] + [(ROOM_COLS - 1, y) for y in range(ROOM_ROWS - 2, -1, -1)]
 
     # Build world
-    world, path_mask = build_world_from_path(path)
+    world, path_mask = build_world_from_path(path, cfg.exit_style)
 
     # Decorate
     decorate_world(

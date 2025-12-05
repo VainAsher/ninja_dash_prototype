@@ -39,6 +39,8 @@ from settings import (
 )
 
 from level_gen import generate_level
+from level_gen.config import ACT_GEOMETRY
+from core.campaign import get_base_abilities_for_act
 from player import Player
 from camera import get_camera_rect
 from highscores import get_highscores, add_highscore, qualifies_for_highscore
@@ -51,6 +53,8 @@ from entities.ability_orb import AbilityOrb
 from entities.enemy_manager import EnemyManager
 from core.combat_system import DamageNumberManager
 from entities.player_entity import PlayerController
+
+from core.campaign import CampaignState
 
 from states.base import GameState
 from states.gameplay.play import PlayState
@@ -111,15 +115,32 @@ def draw_world(
     powerups: List[Powerup],
     cam: pygame.Rect,
     debug: bool,
+    biome: str = "lantern",
 ) -> None:
-    """Draw game world with all entities."""        
+    """Draw game world with all entities."""
     if not debug:
-        play_surf.fill(COLOR_BG)
+        # Biome-specific background colors
+        bg_colors = {
+            "lantern": (10, 10, 20),      # Dark blue-black (current default)
+            "hollow": (5, 5, 15),          # Very dark purple-black
+            "ember": (20, 10, 5),          # Dark reddish-brown
+            "sky": (15, 25, 40),           # Dark blue-gray
+        }
+        play_surf.fill(bg_colors.get(biome, COLOR_BG))
+
+        # Biome-specific tile colors
+        tile_colors = {
+            "lantern": (200, 180, 120),    # Warm golden stone
+            "hollow": (40, 40, 70),        # Deep purple-gray
+            "ember": (150, 80, 40),        # Burnt orange-brown
+            "sky": (180, 220, 255),        # Light sky blue
+        }
+        ground_color = tile_colors.get(biome, COLOR_TILE)
 
         # Tiles / phaseable walls
         for t in tiles:
             if cam.colliderect(t):
-                color = COLOR_PHASEABLE_WALL if t in phaseable_walls else COLOR_TILE
+                color = COLOR_PHASEABLE_WALL if t in phaseable_walls else ground_color
                 pygame.draw.rect(
                     play_surf,
                     color,
@@ -196,10 +217,22 @@ def draw_world(
                 pygame.draw.polygon(play_surf, color, points)
                 pygame.draw.polygon(play_surf, (255, 255, 255), points, 2)
 
-        # Exit gate
+        # Exit gate (biome-aware colors)
         if exit_gate and exit_gate.rect and cam.colliderect(exit_gate.rect):
             er = exit_gate.rect
-            color = COLOR_EXIT if exit_gate.unlocked else COLOR_EXIT_LOCKED
+
+            # Biome-specific exit colors
+            if exit_gate.unlocked:
+                exit_colors = {
+                    "lantern": (255, 220, 120),    # Golden
+                    "hollow": (120, 0, 150),       # Purple
+                    "ember": (255, 150, 80),       # Orange-red
+                    "sky": (200, 255, 255),        # Cyan-white
+                }
+                color = exit_colors.get(biome, COLOR_EXIT)
+            else:
+                color = COLOR_EXIT_LOCKED
+
             pygame.draw.rect(
                 play_surf,
                 color,
@@ -405,6 +438,10 @@ class Game:
         self.pending_level: int | None = None
         self.pending_difficulty: str | None = None
 
+        # Campaign mode
+        self.campaign_mode: bool = False
+        self.campaign_state: CampaignState = CampaignState()
+        self.current_biome: str = "lantern"  # Current biome for rendering
 
         # World / entities
         self.world: Any = None
@@ -499,34 +536,79 @@ class Game:
         FEATURES["wall_jump"] = self.unlock_mgr.is_enabled("WALL_JUMP")
 
     def build_level(self) -> None:
-        cfg = DIFFICULTY_CONFIG[self.difficulty].copy()
-        cfg.update(self.user_settings.get_generation_overrides())
-
-        self.abilities = get_enabled_abilities()
-
         # Generate actual seed if not set (for display in debug overlay)
         if self.seed is None:
             import time
             self.seed = int(time.time() * 1000) % 1000000  # Use timestamp-based seed
 
-        (
-            world,
-            tiles,
-            exit_rect,
-            spawn,
-            coin_rects,
-            hazards,
-            health_rects,
-            life_rects,
-            powerup_defs,
-            phaseable_walls,
-            ability_orb_rects,
-            enemy_positions,
-        ) = generate_level(
-            seed=self.seed,
-            diff_cfg=cfg,
-            abilities=self.abilities,
-        )
+        # Determine configuration based on mode
+        if self.campaign_mode:
+            # Campaign mode: use act-specific config
+            config_key = (self.campaign_state.act, self.campaign_state.mission_index)
+            config = ACT_GEOMETRY.get(
+                config_key,
+                ACT_GEOMETRY.get((self.campaign_state.act, 0))  # Fallback to first mission of act
+            )
+
+            # Get abilities from campaign state
+            base_abilities = get_base_abilities_for_act(self.campaign_state)
+            self.abilities = list(base_abilities | self.campaign_state.abilities_unlocked)
+
+            # Set current biome
+            self.current_biome = config.biome
+
+            # Generate level with campaign config
+            (
+                world,
+                tiles,
+                exit_rect,
+                spawn,
+                coin_rects,
+                hazards,
+                health_rects,
+                life_rects,
+                powerup_defs,
+                phaseable_walls,
+                ability_orb_rects,
+                enemy_positions,
+            ) = generate_level(
+                seed=self.seed,
+                config=config,
+                abilities=self.abilities,
+            )
+
+            # Get multiplier from campaign config
+            base_multiplier = config.multiplier
+        else:
+            # Arcade mode: use difficulty config
+            cfg = DIFFICULTY_CONFIG[self.difficulty].copy()
+            cfg.update(self.user_settings.get_generation_overrides())
+
+            self.abilities = get_enabled_abilities()
+            self.current_biome = "lantern"  # Default biome for arcade
+
+            (
+                world,
+                tiles,
+                exit_rect,
+                spawn,
+                coin_rects,
+                hazards,
+                health_rects,
+                life_rects,
+                powerup_defs,
+                phaseable_walls,
+                ability_orb_rects,
+                enemy_positions,
+            ) = generate_level(
+                seed=self.seed,
+                diff_cfg=cfg,
+                abilities=self.abilities,
+            )
+
+            # Get multiplier from difficulty config
+            cfg_for_diff = DIFFICULTY_CONFIG[self.difficulty]
+            base_multiplier = cfg_for_diff.get("multiplier", 1.0)
 
         self.world = world
         self.tiles = tiles
@@ -535,8 +617,6 @@ class Game:
 
         # Collectibles as entities
         self.coins = []
-        cfg_for_diff = DIFFICULTY_CONFIG[self.difficulty]
-        base_multiplier = cfg_for_diff.get("multiplier", 1.0)
         base_coin_value = int(10 * base_multiplier)  # keep consistent with old behaviour
 
         for r in coin_rects:
@@ -565,7 +645,10 @@ class Game:
 
         # Exit gate entity (coin-gated)
         coin_total = len(self.coins)
-        coin_ratio = cfg_for_diff.get("coin_ratio", 0.0)
+        if self.campaign_mode:
+            coin_ratio = config.coin_ratio
+        else:
+            coin_ratio = DIFFICULTY_CONFIG[self.difficulty].get("coin_ratio", 0.0)
         required_coins = max(0, math.ceil(coin_total * coin_ratio))
         self.exit_gate = ExitGate(exit_rect, coin_total, required_coins)
 
@@ -626,6 +709,29 @@ class Game:
         self.build_level()
         self.change_state("play")
         print(f"📂 Game loaded: Level {self.level_index}, {self.lives} lives, {self.total_score} score")
+
+    def start_campaign(self) -> None:
+        """Start a new campaign playthrough (Hollowed Ninja story mode)."""
+        # Enable campaign mode
+        self.campaign_mode = True
+        self.campaign_state = CampaignState()
+
+        # Reset game state
+        self.level_index = 1
+        self.total_score = 0
+        self.lives = PLAYER_LIVES
+        self.game_time = 0.0
+        self.seed = None
+
+        # For now, start directly into Act 0 mission
+        # Later in Stage 4, we'll add a hub state here
+        self.campaign_state.act = 0
+        self.campaign_state.mission_index = 0
+
+        # Build level and start playing
+        self.build_level()
+        self.change_state("play")
+        print("🎮 Campaign started: Lantern Heights - Act 0")
 
     def restart_level(self) -> None:
         self.build_level()
@@ -707,6 +813,7 @@ class Game:
             self.powerups,
             cam,
             self.debug,
+            self.current_biome,
         )
 
         # Render Ability Orbs (with animations)

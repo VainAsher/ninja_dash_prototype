@@ -25,6 +25,7 @@ class MenuState(GameState):
         if self.game.unlock_mgr.has_save():
             add("▶ Continue", self.game.continue_game)
 
+        add("📖 Campaign", self.game.start_campaign)
         add("🆕 New Game", self.game.start_new_game)
         add("🎲 Custom Seed Run", lambda: self.game.change_state("seed_entry"))
         add("🏆 High Scores", lambda: self.game.change_state("highscores"))
