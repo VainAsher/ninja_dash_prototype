@@ -32,25 +32,37 @@ class MenuState(GameState):
         def add(label: str, cb, tooltip=None):
             self.buttons.append(Button(label, cb, tooltip))
 
-        # Show Continue button if save exists
+        # Reorganized in logical order for RPG-style menu
+        # Top row: Primary gameplay options
         if self.game.unlock_mgr.has_save():
-            add("▸ Continue", self.game.continue_game,
-                "Resume your saved progress")
+            add("Continue", self.game.continue_game,
+                "Resume your saved progress from the last checkpoint")
+        else:
+            add("New Game", self.game.start_new_game,
+                "Start a fresh playthrough")
 
         add("Campaign", self.game.start_campaign,
-            "Play through the story mode with progressive difficulty")
-        add("New Game", self.game.start_new_game,
-            "Start a fresh playthrough (will overwrite current save)")
+            "Play through story mode with progressive difficulty")
+
+        # Second row: Alternative game modes
         add("Custom Seed Run", lambda: self.game.change_state("seed_entry"),
             "Enter a custom seed for procedurally generated levels")
         add("High Scores", lambda: self.game.change_state("highscores"),
             "View your best scores and completion times")
+
+        # Third row: Progression and management
+        if self.game.unlock_mgr.has_save():
+            add("New Game", self.game.start_new_game,
+                "Start a fresh playthrough (will overwrite current save)")
         add("Unlocks", lambda: self.game.change_state("unlocks"),
-            "View and manage unlocked abilities")
+            "View and manage unlocked abilities and progression")
+
+        # Bottom rows: Settings and info
         add("Options", lambda: self.game.change_state("options"),
-            "Configure game settings and controls")
+            "Configure game settings, controls, graphics, and audio")
         add("Help", lambda: self.game.change_state("help"),
-            "View game instructions and tutorials")
+            "View game instructions, controls, and tutorials")
+
         add("Quit", self._confirm_quit,
             "Exit Ninja Dash")
 
@@ -60,12 +72,22 @@ class MenuState(GameState):
                 self._confirm_quit()
                 return
             elif event.key == pygame.K_UP:
-                # Navigate up
-                self.selected_index = (self.selected_index - 1) % len(self.buttons)
+                # Navigate up (move up 2 rows in grid)
+                self.selected_index = (self.selected_index - 2) % len(self.buttons)
                 return
             elif event.key == pygame.K_DOWN:
-                # Navigate down
-                self.selected_index = (self.selected_index + 1) % len(self.buttons)
+                # Navigate down (move down 2 rows in grid)
+                self.selected_index = (self.selected_index + 2) % len(self.buttons)
+                return
+            elif event.key == pygame.K_LEFT:
+                # Navigate left in grid
+                if self.selected_index % 2 == 1:  # If in right column
+                    self.selected_index -= 1
+                return
+            elif event.key == pygame.K_RIGHT:
+                # Navigate right in grid
+                if self.selected_index % 2 == 0 and self.selected_index + 1 < len(self.buttons):
+                    self.selected_index += 1
                 return
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 # Activate selected button
@@ -84,21 +106,39 @@ class MenuState(GameState):
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill((10, 10, 30))
+
+        # Title area - moved higher and more prominent
         title = FONT_BIG.render("NINJA DASH", True, (100, 200, 255))
         subtitle = FONT.render("Refactored Prototype", True, (180, 180, 220))
-        title_rect = title.get_rect(center=(LOGICAL_W // 2, 120))
-        sub_rect = subtitle.get_rect(center=(LOGICAL_W // 2, 170))
+        title_rect = title.get_rect(center=(LOGICAL_W // 2, 50))
+        sub_rect = subtitle.get_rect(center=(LOGICAL_W // 2, 90))
+
+        # Draw title background for prominence
+        title_bg = pygame.Rect(0, 0, LOGICAL_W, 130)
+        pygame.draw.rect(surface, (15, 15, 40), title_bg)
+        pygame.draw.line(surface, (60, 80, 120), (0, 129), (LOGICAL_W, 129), 2)
+
         surface.blit(title, title_rect)
         surface.blit(subtitle, sub_rect)
 
-        btn_w = 360
+        # Two-column grid layout
+        btn_w = 280
         btn_h = 40
-        total_h = len(self.buttons) * (btn_h + 12)
-        start_y = (LOGICAL_H - total_h) // 2
+        col_gap = 20
+        row_gap = 12
+
+        # Calculate grid dimensions
+        cols = 2
+        total_grid_w = cols * btn_w + (cols - 1) * col_gap
+        start_x = (LOGICAL_W - total_grid_w) // 2
+        start_y = 160  # Start below title area
 
         for i, btn in enumerate(self.buttons):
-            x = (LOGICAL_W - btn_w) // 2
-            y = start_y + i * (btn_h + 12)
+            col = i % cols
+            row = i // cols
+
+            x = start_x + col * (btn_w + col_gap)
+            y = start_y + row * (btn_h + row_gap)
             btn.layout(x, y, btn_w, btn_h)
 
             # Draw selection indicator for keyboard navigation
