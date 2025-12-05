@@ -69,6 +69,8 @@ from states.meta.highscores import HighscoresState
 from states.meta.unlocks import UnlocksState
 from states.meta.name_entry import NameEntryState
 from states.meta.seed_entry import SeedEntryState
+from states.campaign import LanternHub, HollowHub, EmberHub, SkyHub
+from states.campaign.ending import CampaignEnding
 
 from ui.hud_components import (
     ScoreSection,
@@ -503,6 +505,12 @@ class Game:
             "name_entry": NameEntryState(self),
             "seed_entry": SeedEntryState(self),
             "controls": ControlsViewerState(self),
+            # Campaign hubs
+            "lantern_hub": LanternHub(self),
+            "hollow_hub": HollowHub(self),
+            "ember_hub": EmberHub(self),
+            "sky_hub": SkyHub(self),
+            "campaign_ending": CampaignEnding(self),
         }
 
     def change_state(self, name: str) -> None:
@@ -657,6 +665,10 @@ class Game:
         self.player = Player(sx, sy)
         self.player_controller = PlayerController(self.player)
 
+        # Apply campaign stat bonuses
+        if self.campaign_mode:
+            self._apply_campaign_stats()
+
         # Reset run timer for this level
         self.game_time = 0.0
 
@@ -723,15 +735,88 @@ class Game:
         self.game_time = 0.0
         self.seed = None
 
-        # For now, start directly into Act 0 mission
-        # Later in Stage 4, we'll add a hub state here
+        # Start in Lantern Hub (Act 0)
         self.campaign_state.act = 0
         self.campaign_state.mission_index = 0
 
-        # Build level and start playing
+        # Go to Lantern Hub instead of directly to play
+        self.change_state("lantern_hub")
+        print("🎮 Campaign started: Lantern Heights Hub")
+
+    def set_campaign_act(self, act: int, mission: int = 0) -> None:
+        """
+        DEBUG: Set campaign to specific act/mission for testing.
+
+        Args:
+            act: Act number (0-4)
+            mission: Mission index (default: 0)
+        """
+        if not self.campaign_mode:
+            print("⚠️  Campaign mode not active. Use start_campaign() first.")
+            return
+
+        self.campaign_state.act = act
+        self.campaign_state.mission_index = mission
+
+        # Reset seed for variety
+        self.seed = None
+
+        # Rebuild level with new act config
         self.build_level()
-        self.change_state("play")
-        print("🎮 Campaign started: Lantern Heights - Act 0")
+
+        act_names = {
+            0: "Lantern Heights",
+            1: "Veil Maiden Arena",
+            2: "Hollow Depths",
+            3: "Ember Monastery",
+            4: "Skyroad Summit"
+        }
+        print(f"🎮 Campaign set to: Act {act} - {act_names.get(act, 'Unknown')} (Mission {mission})")
+        print(f"   Biome: {self.current_biome}")
+        print(f"   Base abilities: {get_base_abilities_for_act(self.campaign_state)}")
+
+    def get_hub_for_act(self, act: int) -> str:
+        """Get the hub state name for a given act."""
+        hub_map = {
+            0: "lantern_hub",
+            1: "lantern_hub",  # Veil Maiden leads back to Lantern before hollowing
+            2: "hollow_hub",
+            3: "ember_hub",
+            4: "sky_hub",
+        }
+        return hub_map.get(act, "lantern_hub")
+
+    def return_to_hub(self) -> None:
+        """Return to the appropriate hub for the current act."""
+        if not self.campaign_mode:
+            return
+
+        hub_state = self.get_hub_for_act(self.campaign_state.act)
+        self.change_state(hub_state)
+        print(f"🏛️  Returned to hub: {hub_state}")
+
+    def _apply_campaign_stats(self) -> None:
+        """Apply campaign stat bonuses to player (HP, SPD, STG, DEF)."""
+        if not self.campaign_mode or not self.player:
+            return
+
+        # Get total stats from campaign state
+        stats = self.campaign_state.get_total_stats()
+
+        # Apply HP to player health
+        from settings import PLAYER_MAX_HEALTH
+        base_health_ratio = self.player.health / PLAYER_MAX_HEALTH
+        self.player.health = int(stats.hp * base_health_ratio)  # Maintain current health percentage
+
+        # Apply SPD to player max speed
+        from settings import MAX_RUN_SPEED
+        self.player.user_max_speed = MAX_RUN_SPEED * stats.spd
+
+        # Store STG and DEF for combat calculations (add to player if not exists)
+        self.player.campaign_strength = stats.stg
+        self.player.campaign_defense = stats.def_
+
+        print(f"⚔️  Campaign stats applied: HP={stats.hp}, SPD={stats.spd:.2f}x, STG={stats.stg}, DEF={stats.def_}")
 
     def restart_level(self) -> None:
         self.build_level()
@@ -760,19 +845,47 @@ class Game:
             self.game_time
         )
 
-        self.next_level()
+        if self.campaign_mode:
+            # Campaign mode: Advance mission, award currency, and check for completion
+            self.campaign_state.mission_index += 1
+
+            # Award currency based on mission difficulty
+            currency_reward = 50 + (self.campaign_state.act * 25)
+            self.campaign_state.add_currency(currency_reward)
+
+            # Check for campaign completion (Act 4, Mission 3 = Final Boss)
+            if self.campaign_state.act == 4 and self.campaign_state.mission_index >= 3:
+                # Campaign complete! Trigger ending
+                self.campaign_state.on_boss_defeated("hollow_reflection")
+                print("🏆 Campaign Complete! Hollow Reflection defeated!")
+                self.change_state("campaign_ending")
+            else:
+                # Continue campaign - return to hub
+                self.return_to_hub()
+        else:
+            # Arcade mode: Continue to next level
+            self.next_level()
 
     def on_game_over(self) -> None:
-        # Delete save file on game over (death consequences)
-        self.unlock_mgr.delete_save()
-
-        if qualifies_for_highscore(self.total_score):
-            self.pending_score = self.total_score
-            self.pending_level = self.level_index
-            self.pending_difficulty = self.difficulty
-            self.change_state("name_entry")
+        if self.campaign_mode:
+            # Campaign mode: Return to hub on death (keep campaign progress)
+            # Reset mission progress but keep abilities and scrolls
+            self.campaign_state.mission_index = 0
+            self.lives = PLAYER_LIVES  # Restore lives at hub
+            print("💀 Mission failed. Returning to hub...")
+            self.return_to_hub()
         else:
-            self.change_state("gameover")        
+            # Arcade mode: Game over screen and highscore
+            # Delete save file on game over (death consequences)
+            self.unlock_mgr.delete_save()
+
+            if qualifies_for_highscore(self.total_score):
+                self.pending_score = self.total_score
+                self.pending_level = self.level_index
+                self.pending_difficulty = self.difficulty
+                self.change_state("name_entry")
+            else:
+                self.change_state("gameover")        
 
     # ---------------- Top-level loop hooks ----------------
 

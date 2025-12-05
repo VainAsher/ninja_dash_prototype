@@ -19,7 +19,7 @@ The campaign follows this structure:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Set, Tuple
+from typing import Dict, Set, Tuple, Optional
 
 
 @dataclass
@@ -84,6 +84,13 @@ class CampaignState:
 
     # Equipment and power level
     max_equipment_tier: int = 1
+    equipped_items: Dict[str, str] = field(default_factory=lambda: {
+        "weapon": "training_blade",
+        "armor": "cloth_gi",
+        "boots": "worn_sandals",
+        "charm": "wooden_talisman",
+    })
+    currency: int = 0  # Fragments available for equipment purchases
 
     # Story state
     has_yin_yang: bool = True
@@ -195,6 +202,93 @@ class CampaignState:
         if scroll_id in self.scrolls_completed:
             self.abilities_unlocked.add(ability_name)
             print(f"✨ Ability unlocked: {ability_name}")
+
+    def get_total_stats(self):
+        """
+        Calculate total stats (base + equipment bonuses).
+
+        Returns:
+            Stats object with combined base and equipment stats
+        """
+        from core.equipment import get_base_stats_for_act, ALL_EQUIPMENT, Stats
+
+        # Start with base stats for current act
+        total = get_base_stats_for_act(self.act).copy()
+
+        # Add bonuses from equipped items
+        for slot, item_id in self.equipped_items.items():
+            if item_id in ALL_EQUIPMENT:
+                equipment = ALL_EQUIPMENT[item_id]
+                total = total + equipment.stats
+
+        return total
+
+    def equip_item(self, item_id: str) -> bool:
+        """
+        Equip an item to the appropriate slot.
+
+        Args:
+            item_id: ID of the equipment to equip
+
+        Returns:
+            True if equipped successfully, False otherwise
+        """
+        from core.equipment import ALL_EQUIPMENT
+
+        if item_id not in ALL_EQUIPMENT:
+            print(f"⚠️  Unknown equipment: {item_id}")
+            return False
+
+        equipment = ALL_EQUIPMENT[item_id]
+
+        # Check tier requirement
+        if equipment.tier > self.max_equipment_tier:
+            print(f"⚠️  Equipment tier {equipment.tier} not yet unlocked (max: {self.max_equipment_tier})")
+            return False
+
+        # Equip to slot
+        self.equipped_items[equipment.slot] = item_id
+        print(f"⚙️  Equipped: {equipment.name}")
+        return True
+
+    def purchase_equipment(self, item_id: str) -> bool:
+        """
+        Purchase and equip an item using currency.
+
+        Args:
+            item_id: ID of the equipment to purchase
+
+        Returns:
+            True if purchased successfully, False otherwise
+        """
+        from core.equipment import ALL_EQUIPMENT
+
+        if item_id not in ALL_EQUIPMENT:
+            print(f"⚠️  Unknown equipment: {item_id}")
+            return False
+
+        equipment = ALL_EQUIPMENT[item_id]
+
+        # Check tier requirement
+        if equipment.tier > self.max_equipment_tier:
+            print(f"⚠️  Equipment tier {equipment.tier} not yet unlocked")
+            return False
+
+        # Check currency
+        if self.currency < equipment.cost:
+            print(f"⚠️  Not enough currency: {self.currency}/{equipment.cost}")
+            return False
+
+        # Purchase and equip
+        self.currency -= equipment.cost
+        self.equip_item(item_id)
+        print(f"💰 Purchased {equipment.name} for {equipment.cost} fragments")
+        return True
+
+    def add_currency(self, amount: int) -> None:
+        """Add currency (fragments) for equipment purchases."""
+        self.currency += amount
+        print(f"💎 +{amount} fragments (Total: {self.currency})")
 
 
 def get_base_abilities_for_act(state: CampaignState) -> Set[str]:
