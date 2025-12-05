@@ -32,6 +32,8 @@ class ControlsViewerState(GameState):
         # Rebinding state
         self.rebinding_action: Optional[str] = None
         self.waiting_for_key = False
+        self.conflict_message: Optional[str] = None
+        self.conflict_timer = 0.0
 
         # Visual
         self.bg_color = (15, 15, 25)
@@ -115,18 +117,44 @@ class ControlsViewerState(GameState):
 
         # Try to rebind
         if self.rebinding_action:
-            # For now, replace all keys with single new key
-            # TODO: Allow multi-key bindings
-            success = self.controls.rebind_action(
+            # Check for conflicts first
+            conflicts = self.controls.get_conflicting_actions(
                 self.rebinding_action,
-                [key_name],
-                allow_conflicts=False
+                [key_name]
             )
 
-            if success:
-                self.waiting_for_key = False
-                self.rebinding_action = None
-            # If failed (conflict), could show message
+            if conflicts:
+                # Show conflict message
+                conflict_action = conflicts[0]
+                conflict_name = self.controls.get_action_display_name(conflict_action)
+                self.conflict_message = f"Key already bound to '{conflict_name}'. Press again to replace."
+                self.conflict_timer = 4.0
+
+                # Allow rebinding with conflicts on second press
+                success = self.controls.rebind_action(
+                    self.rebinding_action,
+                    [key_name],
+                    allow_conflicts=True
+                )
+
+                if success:
+                    self.waiting_for_key = False
+                    self.rebinding_action = None
+                    self.conflict_message = f"Rebound successfully!"
+                    self.conflict_timer = 2.0
+            else:
+                # No conflicts, rebind immediately
+                success = self.controls.rebind_action(
+                    self.rebinding_action,
+                    [key_name],
+                    allow_conflicts=False
+                )
+
+                if success:
+                    self.waiting_for_key = False
+                    self.rebinding_action = None
+                    self.conflict_message = "Rebound successfully!"
+                    self.conflict_timer = 2.0
 
     def _handle_click(self, pos: Tuple[int, int]) -> None:
         """Handle mouse clicks."""
@@ -162,9 +190,44 @@ class ControlsViewerState(GameState):
                 self.scroll_offset = 0
                 return
 
+        # Check key binding box clicks for rebinding
+        if self.categories and not self.waiting_for_key:
+            category = self.categories[self.category_index]
+            action_ids = self.controls.get_category_actions(category)
+
+            panel_rect = pygame.Rect(50, 160, LOGICAL_W - 100, LOGICAL_H - 220)
+            y_offset = panel_rect.top + 20
+            line_height = 36
+            visible_actions = (panel_rect.height - 40) // line_height
+
+            for i, action_id in enumerate(action_ids):
+                if i < self.scroll_offset:
+                    continue
+                if i >= self.scroll_offset + visible_actions:
+                    break
+
+                name_y = y_offset + (i - self.scroll_offset) * line_height
+                key_box_rect = pygame.Rect(
+                    panel_rect.right - 250,
+                    name_y - 4,
+                    220,
+                    28
+                )
+
+                if key_box_rect.collidepoint(pos):
+                    # Start rebinding this action
+                    self.rebinding_action = action_id
+                    self.waiting_for_key = True
+                    self.conflict_message = None
+                    return
+
     def update(self, dt: float) -> None:
         """Update the controls viewer."""
-        pass
+        # Update conflict message timer
+        if self.conflict_timer > 0:
+            self.conflict_timer -= dt
+            if self.conflict_timer <= 0:
+                self.conflict_message = None
 
     def draw(self, surface: pygame.Surface) -> None:
         """Render the controls viewer."""
@@ -177,17 +240,28 @@ class ControlsViewerState(GameState):
 
         # Instructions
         if self.waiting_for_key:
+            action_name = self.controls.get_action_display_name(self.rebinding_action)
             instr = FONT_SMALL.render(
-                "Press a key to rebind (Esc to cancel)",
+                f"Press new key for '{action_name}' (Esc to cancel)",
                 True, (255, 255, 100)
             )
         else:
             instr = FONT_SMALL.render(
-                "Arrow Keys: Navigate | R: Reset to Defaults | Esc: Back",
+                "Click a key binding to rebind | R: Reset to Defaults | Esc: Back",
                 True, (180, 180, 220)
             )
         instr_rect = instr.get_rect(center=(LOGICAL_W // 2, LOGICAL_H - 30))
         surface.blit(instr, instr_rect)
+
+        # Conflict/status message
+        if self.conflict_message:
+            msg_color = (255, 200, 100) if "already bound" in self.conflict_message else (100, 255, 150)
+            msg_text = FONT.render(self.conflict_message, True, msg_color)
+            msg_rect = msg_text.get_rect(center=(LOGICAL_W // 2, LOGICAL_H - 60))
+            # Background for better visibility
+            bg_rect = msg_rect.inflate(20, 10)
+            pygame.draw.rect(surface, (20, 20, 30, 200), bg_rect, border_radius=6)
+            surface.blit(msg_text, msg_rect)
 
         # Category tabs
         self._draw_category_tabs(surface)
@@ -275,12 +349,24 @@ class ControlsViewerState(GameState):
             )
 
             # Highlight if rebinding this action
-            box_color = self.highlight_color if action_id == self.rebinding_action else self.key_bg_color
+            is_rebinding = action_id == self.rebinding_action
+            if is_rebinding and self.waiting_for_key:
+                box_color = (255, 200, 50)  # Yellow/gold when waiting for key
+            elif is_rebinding:
+                box_color = self.highlight_color
+            else:
+                box_color = self.key_bg_color
+
             pygame.draw.rect(surface, box_color, key_box_rect, border_radius=6)
 
-            # Draw keys text
-            keys_rect = keys_text.get_rect(center=key_box_rect.center)
-            surface.blit(keys_text, keys_rect)
+            # Draw keys text or "Press key..." message
+            if is_rebinding and self.waiting_for_key:
+                waiting_text = FONT_SMALL.render("Press key...", True, (20, 20, 20))
+                waiting_rect = waiting_text.get_rect(center=key_box_rect.center)
+                surface.blit(waiting_text, waiting_rect)
+            else:
+                keys_rect = keys_text.get_rect(center=key_box_rect.center)
+                surface.blit(keys_text, keys_rect)
 
         # Draw scrollbar if needed
         if self.max_scroll > 0:

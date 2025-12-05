@@ -16,11 +16,16 @@ class PlayState(GameState):
         self.notification_text = ""
         self.unlock_notification_timer = 0.0
         self.unlock_notification_text = ""
+        self.show_controls_overlay = False
 
     def handle_event(self, event: pygame.event.EventType) -> None:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.game.change_state("pause")
+            # F1: Toggle controls quick reference
+            elif event.key == pygame.K_F1:
+                self.show_controls_overlay = not self.show_controls_overlay
+                print(f"[INFO] Controls Overlay: {'ON' if self.show_controls_overlay else 'OFF'}")
             # F3: Toggle debug overlay
             elif event.key == pygame.K_F3:
                 if hasattr(self.game, 'debug_overlay'):
@@ -190,6 +195,10 @@ class PlayState(GameState):
         # Draw notifications
         self._draw_notifications(surface)
 
+        # Draw controls overlay if enabled
+        if self.show_controls_overlay:
+            self._draw_controls_overlay(surface)
+
     def _draw_notifications(self, surface: pygame.Surface) -> None:
         """Draw collection and unlock notifications."""
         from settings import LOGICAL_W, LOGICAL_H, FONT_BIG, FONT
@@ -238,3 +247,88 @@ class PlayState(GameState):
             subtitle = FONT.render("Check your abilities!", True, (220, 220, 220))
             subtitle_rect = subtitle.get_rect(center=(LOGICAL_W // 2, y_offset + 35))
             surface.blit(subtitle, subtitle_rect)
+
+    def _draw_controls_overlay(self, surface: pygame.Surface) -> None:
+        """Draw quick controls reference overlay (F1)."""
+        from settings import LOGICAL_W, LOGICAL_H, FONT, FONT_SMALL, FONT_BIG
+
+        # Semi-transparent background
+        overlay = pygame.Surface((LOGICAL_W, LOGICAL_H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        surface.blit(overlay, (0, 0))
+
+        # Control panel dimensions
+        panel_w = 600
+        panel_h = 500
+        panel_x = (LOGICAL_W - panel_w) // 2
+        panel_y = (LOGICAL_H - panel_h) // 2
+
+        # Draw panel background
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+        pygame.draw.rect(surface, (25, 25, 40), panel_rect, border_radius=12)
+        pygame.draw.rect(surface, (100, 120, 180), panel_rect, 3, border_radius=12)
+
+        # Title
+        title = FONT_BIG.render("CONTROLS", True, (200, 220, 255))
+        title_rect = title.get_rect(center=(LOGICAL_W // 2, panel_y + 30))
+        surface.blit(title, title_rect)
+
+        # Get controls manager for dynamic key display
+        from controls import get_controls_manager
+        controls = get_controls_manager()
+
+        # Define control groups
+        control_groups = [
+            ("MOVEMENT", [
+                ("Jump", "movement.jump"),
+                ("Move Left/Right", "movement.move_left"),
+                ("Crouch/Slide", "movement.crouch_down"),
+            ]),
+            ("ABILITIES", [
+                ("Dash", "abilities.dash"),
+                ("Wall Jump", "abilities.wall_jump"),
+                ("Double Jump", "abilities.double_jump"),
+                ("Air Dodge", "abilities.air_dodge"),
+            ]),
+            ("GAME", [
+                ("Pause", "ui.pause"),
+                ("Quick Controls", "Press F1"),
+                ("Debug", "Press F3"),
+            ])
+        ]
+
+        # Draw controls
+        y_offset = panel_y + 70
+        x_left = panel_x + 30
+        x_right = panel_x + panel_w - 180
+
+        for group_name, controls_list in control_groups:
+            # Group header
+            group_header = FONT.render(group_name, True, (150, 200, 255))
+            surface.blit(group_header, (x_left, y_offset))
+            y_offset += 28
+
+            # Draw each control
+            for action_name, action_id in controls_list:
+                # Action name
+                action_text = FONT_SMALL.render(action_name, True, (200, 200, 220))
+                surface.blit(action_text, (x_left + 10, y_offset))
+
+                # Key binding
+                if action_id.startswith("Press "):
+                    # Special case for non-action keys
+                    key_text = action_id.replace("Press ", "")
+                else:
+                    key_text = controls.get_action_keys_display(action_id)
+
+                key_surf = FONT_SMALL.render(key_text, True, (255, 230, 120))
+                surface.blit(key_surf, (x_right, y_offset))
+
+                y_offset += 24
+
+            y_offset += 12  # Extra space between groups
+
+        # Footer hint
+        hint = FONT_SMALL.render("Press F1 again to close", True, (180, 180, 200))
+        hint_rect = hint.get_rect(center=(LOGICAL_W // 2, panel_y + panel_h - 25))
+        surface.blit(hint, hint_rect)
