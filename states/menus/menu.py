@@ -15,6 +15,7 @@ class MenuState(GameState):
     def __init__(self, game) -> None:
         super().__init__(game)
         self.buttons: list[Button] = []
+        self.selected_index = 0  # For keyboard navigation
 
     def _confirm_quit(self) -> None:
         """Show confirmation before quitting the game."""
@@ -54,9 +55,25 @@ class MenuState(GameState):
             "Exit Ninja Dash")
 
     def handle_event(self, event: pygame.event.EventType) -> None:
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            self._confirm_quit()
-            return
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self._confirm_quit()
+                return
+            elif event.key == pygame.K_UP:
+                # Navigate up
+                self.selected_index = (self.selected_index - 1) % len(self.buttons)
+                return
+            elif event.key == pygame.K_DOWN:
+                # Navigate down
+                self.selected_index = (self.selected_index + 1) % len(self.buttons)
+                return
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                # Activate selected button
+                if 0 <= self.selected_index < len(self.buttons):
+                    self.buttons[self.selected_index].on_click()
+                return
+
+        # Still support mouse
         for b in self.buttons:
             b.handle_event(event)
 
@@ -83,4 +100,11 @@ class MenuState(GameState):
             x = (LOGICAL_W - btn_w) // 2
             y = start_y + i * (btn_h + 12)
             btn.layout(x, y, btn_w, btn_h)
+
+            # Draw selection indicator for keyboard navigation
+            if i == self.selected_index:
+                # Draw glow/border around selected button
+                glow_rect = pygame.Rect(x - 4, y - 4, btn_w + 8, btn_h + 8)
+                pygame.draw.rect(surface, (255, 255, 100), glow_rect, 3, border_radius=10)
+
             btn.draw(surface)
