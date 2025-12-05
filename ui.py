@@ -12,18 +12,27 @@ from settings import (
 
 
 class Button:
-    """Interactive button UI element with enhanced visual feedback."""
-    
-    def __init__(self, label, on_click):
+    """Interactive button UI element with enhanced visual feedback and tooltip support."""
+
+    def __init__(self, label, on_click, tooltip=None):
         self.label = label
         self.on_click = on_click
+        self.tooltip = tooltip
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.hover = False
         self.enabled = True
         self.click_started = False
+        self.hover_timer = 0.0
 
     def layout(self, x, y, w, h):
         self.rect = pygame.Rect(x, y, w, h)
+
+    def update(self, dt):
+        """Update hover timer for tooltip delay."""
+        if self.hover:
+            self.hover_timer += dt
+        else:
+            self.hover_timer = 0.0
 
     def handle_event(self, event):
         if not self.enabled:
@@ -66,6 +75,74 @@ class Button:
         txt = FONT.render(self.label, True, text_color)
         tr = txt.get_rect(center=self.rect.center)
         surf.blit(txt, tr)
+
+        # Draw tooltip if hovering for >0.5s
+        if self.tooltip and self.hover and self.hover_timer > 0.5:
+            self._draw_tooltip(surf)
+
+    def _draw_tooltip(self, surf):
+        """Draw tooltip box near button."""
+        # Wrap tooltip text
+        max_width = 300
+        lines = self._wrap_tooltip_text(self.tooltip, max_width)
+
+        # Calculate tooltip dimensions
+        padding = 8
+        line_height = FONT_SMALL.get_height() + 2
+        tooltip_w = max_width + padding * 2
+        tooltip_h = len(lines) * line_height + padding * 2
+
+        # Position tooltip below button (or above if not enough space)
+        tooltip_x = self.rect.centerx - tooltip_w // 2
+        tooltip_y = self.rect.bottom + 8
+
+        # Clamp to screen bounds
+        screen_w = surf.get_width()
+        screen_h = surf.get_height()
+        tooltip_x = max(4, min(tooltip_x, screen_w - tooltip_w - 4))
+
+        # If tooltip goes off bottom, show above button
+        if tooltip_y + tooltip_h > screen_h - 4:
+            tooltip_y = self.rect.top - tooltip_h - 8
+
+        # Create tooltip surface with alpha
+        tooltip_surf = pygame.Surface((tooltip_w, tooltip_h), pygame.SRCALPHA)
+
+        # Draw background
+        pygame.draw.rect(tooltip_surf, (20, 20, 30, 240), tooltip_surf.get_rect(), border_radius=6)
+        pygame.draw.rect(tooltip_surf, (100, 120, 180, 255), tooltip_surf.get_rect(), 2, border_radius=6)
+
+        # Draw text lines
+        y_offset = padding
+        for line in lines:
+            text = FONT_SMALL.render(line, True, (220, 220, 240))
+            tooltip_surf.blit(text, (padding, y_offset))
+            y_offset += line_height
+
+        # Blit to main surface
+        surf.blit(tooltip_surf, (tooltip_x, tooltip_y))
+
+    def _wrap_tooltip_text(self, text, max_width):
+        """Wrap tooltip text to fit within max_width."""
+        words = text.split(' ')
+        lines = []
+        current_line = []
+
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_surf = FONT_SMALL.render(test_line, True, (255, 255, 255))
+
+            if test_surf.get_width() <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        return lines if lines else [text]
 
 
 class Toggle:

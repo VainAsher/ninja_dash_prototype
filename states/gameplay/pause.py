@@ -8,6 +8,7 @@ import pygame
 from settings import LOGICAL_W, LOGICAL_H, COLOR_TEXT, FONT, FONT_BIG
 from ui import Button
 from ..base import GameState
+from ..menus.confirm_dialog import ConfirmDialog
 
 
 class PauseState(GameState):
@@ -16,16 +17,25 @@ class PauseState(GameState):
         self.buttons: list[Button] = []
 
     def _quit_to_menu(self) -> None:
-        """Save game and return to menu."""
-        # Save current progress before quitting to menu
-        if self.game.lives > 0:
-            self.game.unlock_mgr.save_game_state(
-                self.game.level_index,
-                self.game.lives,
-                self.game.total_score,
-                self.game.game_time
-            )
-        self.game.change_state("menu")
+        """Show confirmation before quitting to menu."""
+        def do_quit():
+            # Save current progress before quitting to menu
+            if self.game.lives > 0:
+                self.game.unlock_mgr.save_game_state(
+                    self.game.level_index,
+                    self.game.lives,
+                    self.game.total_score,
+                    self.game.game_time
+                )
+            self.game.change_state("menu")
+
+        # Show confirmation dialog
+        confirm = ConfirmDialog(
+            self.game,
+            "Return to main menu? Progress will be saved.",
+            on_confirm=do_quit
+        )
+        self.game.push_state(confirm)
 
     def enter(self) -> None:
         self.buttons.clear()
@@ -33,11 +43,11 @@ class PauseState(GameState):
         def add(label: str, cb):
             self.buttons.append(Button(label, cb))
 
-        add("▶ Resume", lambda: self.game.change_state("play"))
-        add("⚙ Options", lambda: self.game.change_state("options"))
-        add("🎮 Controls", lambda: self.game.change_state("controls"))
-        add("🔧 Debug", lambda: self.game.change_state("debug"))
-        add("↩ Quit to Menu", self._quit_to_menu)
+        add("Resume", lambda: self.game.change_state("play"))
+        add("Options", lambda: self.game.change_state("options"))
+        add("Controls", lambda: self.game.change_state("controls"))
+        add("Debug", lambda: self.game.change_state("debug"))
+        add("Quit to Menu", self._quit_to_menu)
 
     def handle_event(self, event: pygame.event.EventType) -> None:
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -47,7 +57,9 @@ class PauseState(GameState):
             b.handle_event(event)
 
     def update(self, dt: float) -> None:
-        pass
+        # Update buttons for tooltip timing
+        for btn in self.buttons:
+            btn.update(dt)
 
     def draw(self, surface: pygame.Surface) -> None:
         self.game.draw_world_and_player()
