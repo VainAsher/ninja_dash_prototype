@@ -733,6 +733,38 @@ class Game:
         self.change_state("play")
         print("🎮 Campaign started: Lantern Heights - Act 0")
 
+    def set_campaign_act(self, act: int, mission: int = 0) -> None:
+        """
+        DEBUG: Set campaign to specific act/mission for testing.
+
+        Args:
+            act: Act number (0-4)
+            mission: Mission index (default: 0)
+        """
+        if not self.campaign_mode:
+            print("⚠️  Campaign mode not active. Use start_campaign() first.")
+            return
+
+        self.campaign_state.act = act
+        self.campaign_state.mission_index = mission
+
+        # Reset seed for variety
+        self.seed = None
+
+        # Rebuild level with new act config
+        self.build_level()
+
+        act_names = {
+            0: "Lantern Heights",
+            1: "Veil Maiden Arena",
+            2: "Hollow Depths",
+            3: "Ember Monastery",
+            4: "Skyroad Summit"
+        }
+        print(f"🎮 Campaign set to: Act {act} - {act_names.get(act, 'Unknown')} (Mission {mission})")
+        print(f"   Biome: {self.current_biome}")
+        print(f"   Base abilities: {get_base_abilities_for_act(self.campaign_state)}")
+
     def restart_level(self) -> None:
         self.build_level()
         self.change_state("play")

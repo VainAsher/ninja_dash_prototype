@@ -117,6 +117,9 @@ class AbilityOrb:
         """
         Attempt to collect the orb.
 
+        In arcade mode: Adds to unlock manager progress
+        In campaign mode: Adds scroll fragment for current act
+
         Returns:
             True if collected (triggers removal and effects)
         """
@@ -131,22 +134,78 @@ class AbilityOrb:
         # Mark as collected
         self.collected = True
 
-        # Notify unlock manager and check for new unlocks
-        unlock_mgr = getattr(game, 'unlock_mgr', None)
         newly_unlocked = []
-        if unlock_mgr:
-            newly_unlocked = unlock_mgr.add_ability_orb()
 
-        # Immediately enable newly unlocked abilities in the player (mid-level unlock)
-        player = getattr(game, 'player', None)
-        if player and newly_unlocked:
-            for ability_id in newly_unlocked:
-                player.unlock_ability(ability_id)
+        # Handle collection based on game mode
+        if hasattr(game, 'campaign_mode') and game.campaign_mode:
+            # Campaign mode: Add scroll fragment
+            newly_unlocked = self._handle_campaign_collection(game)
+        else:
+            # Arcade mode: Use unlock manager
+            unlock_mgr = getattr(game, 'unlock_mgr', None)
+            if unlock_mgr:
+                newly_unlocked = unlock_mgr.add_ability_orb()
+
+            # Immediately enable newly unlocked abilities in the player (mid-level unlock)
+            player = getattr(game, 'player', None)
+            if player and newly_unlocked:
+                for ability_id in newly_unlocked:
+                    player.unlock_ability(ability_id)
 
         # Trigger collection effects
         self._trigger_collection_effects(game, newly_unlocked)
 
         return True
+
+    def _handle_campaign_collection(self, game: Any) -> list:
+        """
+        Handle ability orb collection in campaign mode.
+
+        Adds a scroll fragment for the current act and checks if a scroll was completed.
+
+        Returns:
+            List of newly unlocked ability names
+        """
+        from core.campaign import get_scroll_for_act, get_required_fragments_for_scroll
+
+        campaign_state = game.campaign_state
+        newly_unlocked = []
+
+        # Get scrolls available in current act
+        act_scrolls = get_scroll_for_act(campaign_state.act)
+
+        if not act_scrolls:
+            # No scrolls in this act (Acts 0 and 1)
+            print(f"ℹ️  No scrolls available in Act {campaign_state.act}")
+            return newly_unlocked
+
+        # For now, pick the first incomplete scroll in the act
+        # In a full implementation, you might rotate or let the player choose
+        for scroll_id, ability_name in act_scrolls.items():
+            if scroll_id not in campaign_state.scrolls_completed:
+                # Add fragment to this scroll
+                required = get_required_fragments_for_scroll(scroll_id)
+                scroll_completed = campaign_state.add_scroll_fragment(scroll_id, required)
+
+                current, total = campaign_state.get_scroll_progress(scroll_id, required)
+                print(f"📜 Scroll fragment collected: {scroll_id} ({current}/{total})")
+
+                if scroll_completed:
+                    # Scroll is complete! Unlock the ability
+                    campaign_state.unlock_ability_from_scroll(scroll_id, ability_name)
+                    newly_unlocked.append(ability_name)
+
+                    # Immediately enable in player
+                    player = getattr(game, 'player', None)
+                    if player:
+                        # Convert ability name to player method if needed
+                        # For now, just notify
+                        print(f"✨ {ability_name} unlocked from scroll: {scroll_id}!")
+
+                # Only collect one fragment per orb
+                break
+
+        return newly_unlocked
 
     def _trigger_collection_effects(self, game: Any, newly_unlocked: list) -> None:
         """Trigger visual/audio effects on collection."""
