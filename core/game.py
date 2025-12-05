@@ -70,6 +70,7 @@ from states.meta.unlocks import UnlocksState
 from states.meta.name_entry import NameEntryState
 from states.meta.seed_entry import SeedEntryState
 from states.campaign import LanternHub, HollowHub, EmberHub, SkyHub
+from states.campaign.ending import CampaignEnding
 
 from ui.hud_components import (
     ScoreSection,
@@ -509,6 +510,7 @@ class Game:
             "hollow_hub": HollowHub(self),
             "ember_hub": EmberHub(self),
             "sky_hub": SkyHub(self),
+            "campaign_ending": CampaignEnding(self),
         }
 
     def change_state(self, name: str) -> None:
@@ -844,14 +846,22 @@ class Game:
         )
 
         if self.campaign_mode:
-            # Campaign mode: Advance mission, award currency, and return to hub
+            # Campaign mode: Advance mission, award currency, and check for completion
             self.campaign_state.mission_index += 1
 
             # Award currency based on mission difficulty
             currency_reward = 50 + (self.campaign_state.act * 25)
             self.campaign_state.add_currency(currency_reward)
 
-            self.return_to_hub()
+            # Check for campaign completion (Act 4, Mission 3 = Final Boss)
+            if self.campaign_state.act == 4 and self.campaign_state.mission_index >= 3:
+                # Campaign complete! Trigger ending
+                self.campaign_state.on_boss_defeated("hollow_reflection")
+                print("🏆 Campaign Complete! Hollow Reflection defeated!")
+                self.change_state("campaign_ending")
+            else:
+                # Continue campaign - return to hub
+                self.return_to_hub()
         else:
             # Arcade mode: Continue to next level
             self.next_level()
