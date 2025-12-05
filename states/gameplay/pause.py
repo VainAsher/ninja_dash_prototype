@@ -97,4 +97,11 @@ class PauseState(GameState):
             x = (LOGICAL_W - btn_w) // 2
             y = start_y + i * (btn_h + 12)
             btn.layout(x, y, btn_w, btn_h)
+
+            # Draw selection indicator for keyboard navigation
+            if i == self.selected_index:
+                # Draw glow/border around selected button
+                glow_rect = pygame.Rect(x - 4, y - 4, btn_w + 8, btn_h + 8)
+                pygame.draw.rect(surface, (255, 255, 100), glow_rect, 3, border_radius=10)
+
             btn.draw(surface)
