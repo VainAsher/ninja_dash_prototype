@@ -15,6 +15,7 @@ class PauseState(GameState):
     def __init__(self, game) -> None:
         super().__init__(game)
         self.buttons: list[Button] = []
+        self.selected_index = 0  # For keyboard navigation
 
     def _quit_to_menu(self) -> None:
         """Show confirmation before quitting to menu."""
@@ -50,9 +51,25 @@ class PauseState(GameState):
         add("Quit to Menu", self._quit_to_menu)
 
     def handle_event(self, event: pygame.event.EventType) -> None:
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            self.game.change_state("play")
-            return
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.game.change_state("play")
+                return
+            elif event.key == pygame.K_UP:
+                # Navigate up
+                self.selected_index = (self.selected_index - 1) % len(self.buttons)
+                return
+            elif event.key == pygame.K_DOWN:
+                # Navigate down
+                self.selected_index = (self.selected_index + 1) % len(self.buttons)
+                return
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                # Activate selected button
+                if 0 <= self.selected_index < len(self.buttons):
+                    self.buttons[self.selected_index].on_click()
+                return
+
+        # Still support mouse
         for b in self.buttons:
             b.handle_event(event)
 
