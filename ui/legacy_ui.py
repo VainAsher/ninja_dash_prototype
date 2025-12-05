@@ -85,7 +85,7 @@ class Button:
             self._draw_tooltip(surf)
 
     def _draw_tooltip(self, surf):
-        """Draw tooltip box near button."""
+        """Draw tooltip box near button with smart positioning."""
         # Wrap tooltip text
         max_width = 300
         lines = self._wrap_tooltip_text(self.tooltip, max_width)
@@ -96,18 +96,33 @@ class Button:
         tooltip_w = max_width + padding * 2
         tooltip_h = len(lines) * line_height + padding * 2
 
-        # Position tooltip below button (or above if not enough space)
-        tooltip_x = self.rect.centerx - tooltip_w // 2
-        tooltip_y = self.rect.bottom + 8
-
-        # Clamp to screen bounds
         screen_w = surf.get_width()
         screen_h = surf.get_height()
-        tooltip_x = max(4, min(tooltip_x, screen_w - tooltip_w - 4))
+        margin = 8
 
-        # If tooltip goes off bottom, show above button
-        if tooltip_y + tooltip_h > screen_h - 4:
-            tooltip_y = self.rect.top - tooltip_h - 8
+        # Smart positioning: Try right, then left, then above, then below
+        # 1. Try to the right of button
+        tooltip_x = self.rect.right + margin
+        tooltip_y = self.rect.centery - tooltip_h // 2
+
+        # Check if fits on right
+        if tooltip_x + tooltip_w > screen_w - 4:
+            # 2. Try to the left
+            tooltip_x = self.rect.left - tooltip_w - margin
+
+            # If doesn't fit on left either, try above/below
+            if tooltip_x < 4:
+                # 3. Try above (centered horizontally)
+                tooltip_x = self.rect.centerx - tooltip_w // 2
+                tooltip_y = self.rect.top - tooltip_h - margin
+
+                # 4. If doesn't fit above, show below as last resort
+                if tooltip_y < 4:
+                    tooltip_y = self.rect.bottom + margin
+
+        # Final clamp to ensure it's fully visible
+        tooltip_x = max(4, min(tooltip_x, screen_w - tooltip_w - 4))
+        tooltip_y = max(4, min(tooltip_y, screen_h - tooltip_h - 4))
 
         # Create tooltip surface with alpha
         tooltip_surf = pygame.Surface((tooltip_w, tooltip_h), pygame.SRCALPHA)
