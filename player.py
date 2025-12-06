@@ -154,6 +154,8 @@ class Player:
             'AIR_DODGE': 'air_dodge',
             'GLIDE': 'glide',
             'SWORD_ATTACK': 'sword_attack',
+            'ATTACK': 'sword_attack',  # Alias for campaign mode
+            'WEAK_ATTACK': 'sword_attack',  # Hollowed attack
             'GRAPPLE_HOOK': 'grapple_hook',
         }
         ability_key = ability_map.get(ability_name)

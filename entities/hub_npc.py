@@ -105,26 +105,26 @@ class HubNPC:
         distance = (dx * dx + dy * dy) ** 0.5
         return distance < self.interaction_range
 
-    def update(self, dt: float, world: Any) -> None:
+    def update(self, dt: float, tiles: Any) -> None:
         """
         Update NPC state and movement.
 
         Args:
             dt: Delta time in seconds
-            world: 2D tile array for collision
+            tiles: List of tile rectangles for collision
         """
         self.state_timer += dt
 
         if self.state == "idle":
             self._update_idle(dt)
         elif self.state == "patrol":
-            self._update_patrol(dt, world)
+            self._update_patrol(dt, tiles)
         elif self.state == "talking":
             # Don't move while talking
             self.vx = 0
 
         # Apply physics
-        self._apply_physics(dt, world)
+        self._apply_physics(dt, tiles)
 
     def _update_idle(self, dt: float) -> None:
         """Idle behavior - stand still for a while, then start patrolling."""
@@ -138,7 +138,7 @@ class HubNPC:
             self.direction = random.choice([-1, 1])
             self.facing = self.direction
 
-    def _update_patrol(self, dt: float, world: Any) -> None:
+    def _update_patrol(self, dt: float, tiles: Any) -> None:
         """Patrol behavior - walk back and forth within patrol range."""
         # Move in current direction
         self.vx = self.patrol_speed * self.direction
@@ -152,54 +152,52 @@ class HubNPC:
             self.vx = self.patrol_speed * self.direction
 
         # Check for walls ahead
-        if self._check_wall_ahead(world):
+        if self._check_wall_ahead(tiles):
             self._turn_around()
 
         # Check for platform edges
-        if self._check_edge_ahead(world):
+        if self.on_ground and self._check_edge_ahead(tiles):
             self._turn_around()
 
         # Random chance to stop and idle
-        if random.random() < 0.002:  # ~0.2% chance per frame
+        if random.random() < 0.003:  # ~0.3% chance per frame
             self.state = "idle"
             self.state_timer = 0.0
-            self.idle_duration = random.uniform(2.0, 5.0)
+            self.idle_duration = random.uniform(1.5, 4.0)
 
-    def _check_wall_ahead(self, world: Any) -> bool:
+    def _check_wall_ahead(self, tiles: Any) -> bool:
         """Check if there's a wall ahead in current direction."""
-        if not world:
+        if not tiles:
             return False
 
-        check_x = self.rect.centerx + (self.direction * (self.rect.width // 2 + 4))
-        check_y = self.rect.centery
+        # Create a small rect in front of the NPC
+        check_rect = pygame.Rect(
+            self.rect.centerx + (self.direction * (self.rect.width // 2 + 2)),
+            self.rect.centery - 5,
+            4, 10
+        )
 
-        tile_x = int(check_x // TILE_SIZE)
-        tile_y = int(check_y // TILE_SIZE)
+        for tile in tiles:
+            if check_rect.colliderect(tile):
+                return True
+        return False
 
-        if tile_y < 0 or tile_y >= len(world):
-            return True
-        if tile_x < 0 or tile_x >= len(world[0]):
-            return True
-
-        return world[tile_y][tile_x] == 1
-
-    def _check_edge_ahead(self, world: Any) -> bool:
+    def _check_edge_ahead(self, tiles: Any) -> bool:
         """Check if there's a platform edge ahead."""
-        if not world:
+        if not tiles:
             return False
 
-        check_x = self.rect.centerx + (self.direction * TILE_SIZE)
-        check_y = self.rect.bottom + 4
+        # Check if there's ground ahead at foot level
+        check_rect = pygame.Rect(
+            self.rect.centerx + (self.direction * (self.rect.width // 2 + TILE_SIZE // 2)),
+            self.rect.bottom + 2,
+            4, 4
+        )
 
-        tile_x = int(check_x // TILE_SIZE)
-        tile_y = int(check_y // TILE_SIZE)
-
-        if tile_y < 0 or tile_y >= len(world):
-            return True
-        if tile_x < 0 or tile_x >= len(world[0]):
-            return True
-
-        return world[tile_y][tile_x] == 0
+        for tile in tiles:
+            if check_rect.colliderect(tile):
+                return False  # Ground ahead, no edge
+        return True  # No ground ahead, there's an edge
 
     def _turn_around(self) -> None:
         """Turn the NPC around."""
@@ -207,7 +205,7 @@ class HubNPC:
         self.facing = self.direction
         self.vx = self.patrol_speed * self.direction
 
-    def _apply_physics(self, dt: float, world: Any) -> None:
+    def _apply_physics(self, dt: float, tiles: Any) -> None:
         """Apply gravity and collision."""
         # Apply gravity
         self.vy += self.gravity * dt
@@ -218,50 +216,38 @@ class HubNPC:
         self.rect.x += int(self.vx * dt)
 
         # Check horizontal collisions
-        if world:
-            self._resolve_horizontal_collision(world)
+        if tiles:
+            self._resolve_horizontal_collision(tiles)
 
         # Move vertically
         self.rect.y += int(self.vy * dt)
 
         # Check vertical collisions
-        if world:
-            self._resolve_vertical_collision(world)
+        if tiles:
+            self._resolve_vertical_collision(tiles)
 
-    def _resolve_horizontal_collision(self, world: Any) -> None:
+    def _resolve_horizontal_collision(self, tiles: Any) -> None:
         """Resolve horizontal collisions with tiles."""
-        for ty in range(len(world)):
-            for tx in range(len(world[0])):
-                if world[ty][tx] == 1:
-                    tile_rect = pygame.Rect(
-                        tx * TILE_SIZE, ty * TILE_SIZE,
-                        TILE_SIZE, TILE_SIZE
-                    )
-                    if self.rect.colliderect(tile_rect):
-                        if self.vx > 0:
-                            self.rect.right = tile_rect.left
-                        elif self.vx < 0:
-                            self.rect.left = tile_rect.right
-                        self.vx = 0
+        for tile in tiles:
+            if self.rect.colliderect(tile):
+                if self.vx > 0:
+                    self.rect.right = tile.left
+                elif self.vx < 0:
+                    self.rect.left = tile.right
+                self.vx = 0
 
-    def _resolve_vertical_collision(self, world: Any) -> None:
+    def _resolve_vertical_collision(self, tiles: Any) -> None:
         """Resolve vertical collisions with tiles."""
         self.on_ground = False
 
-        for ty in range(len(world)):
-            for tx in range(len(world[0])):
-                if world[ty][tx] == 1:
-                    tile_rect = pygame.Rect(
-                        tx * TILE_SIZE, ty * TILE_SIZE,
-                        TILE_SIZE, TILE_SIZE
-                    )
-                    if self.rect.colliderect(tile_rect):
-                        if self.vy > 0:
-                            self.rect.bottom = tile_rect.top
-                            self.on_ground = True
-                        elif self.vy < 0:
-                            self.rect.top = tile_rect.bottom
-                        self.vy = 0
+        for tile in tiles:
+            if self.rect.colliderect(tile):
+                if self.vy > 0:
+                    self.rect.bottom = tile.top
+                    self.on_ground = True
+                elif self.vy < 0:
+                    self.rect.top = tile.bottom
+                self.vy = 0
 
     def start_talking(self) -> None:
         """Enter talking state (stops movement)."""
@@ -394,10 +380,10 @@ class HubNPCManager:
         self.npcs.append(npc)
         return npc
 
-    def update(self, dt: float, world: Any) -> None:
+    def update(self, dt: float, tiles: Any) -> None:
         """Update all NPCs."""
         for npc in self.npcs:
-            npc.update(dt, world)
+            npc.update(dt, tiles)
 
     def get_interactable_npc(self, player_pos: Tuple[int, int]) -> Optional[HubNPC]:
         """Get the closest NPC that can be interacted with."""
