@@ -526,3 +526,117 @@ ACT_GEOMETRY: Dict[Tuple[int, int], LevelGenConfig] = {
         exit_style="world_top",
     ),
 }
+
+
+# ============================================================================
+# HUB LEVEL GENERATION CONFIGS
+# ============================================================================
+# Hub worlds use the same level generator but with fixed seeds for consistency,
+# no hazards/enemies for safety, and special layouts for NPC placement.
+
+HUB_CONFIGS: Dict[str, LevelGenConfig] = {
+    # Lantern Hub (Act 0) - Warm, welcoming starter hub
+    "lantern_hub": LevelGenConfig(
+        verticality_bias=0.25,
+        branchiness=0.3,  # More branching for exploration
+        platform_band_step=4,
+        platform_len_range=(5, 10),  # Wider platforms for easier navigation
+        pillar_chance=0.15,
+        hole_chance=0.05,  # Very few holes
+        hazard_rate=0.0,  # NO HAZARDS in hub
+        enemy_density=0.0,  # NO ENEMIES in hub
+        enemy_min_separation=20,
+        coin_count_range=(0, 0),  # No coins in hub
+        health_density=0.0,
+        lives_per_level=0,
+        powerup_density=0.0,
+        phaseable_wall_chance=0.3,  # Some secret passages
+        coin_ratio=0.0,
+        multiplier=1.0,
+        biome="lantern",
+        exit_style="center_floor",  # Multiple exits placed manually
+    ),
+
+    # Hollow Hub (Act 2) - Dark, cramped depths after hollowing
+    "hollow_hub": LevelGenConfig(
+        verticality_bias=0.5,
+        branchiness=0.35,
+        platform_band_step=3,
+        platform_len_range=(4, 8),
+        pillar_chance=0.35,
+        hole_chance=0.1,
+        hazard_rate=0.0,  # NO HAZARDS
+        enemy_density=0.0,  # NO ENEMIES
+        enemy_min_separation=20,
+        coin_count_range=(0, 0),
+        health_density=0.0,
+        lives_per_level=0,
+        powerup_density=0.0,
+        phaseable_wall_chance=0.25,
+        coin_ratio=0.0,
+        multiplier=1.0,
+        biome="hollow",
+        exit_style="center_floor",
+    ),
+
+    # Ember Hub (Act 3) - Monastery with balanced verticality
+    "ember_hub": LevelGenConfig(
+        verticality_bias=0.4,
+        branchiness=0.4,  # Lots of paths
+        platform_band_step=4,
+        platform_len_range=(5, 9),
+        pillar_chance=0.25,
+        hole_chance=0.08,
+        hazard_rate=0.0,  # NO HAZARDS
+        enemy_density=0.0,  # NO ENEMIES
+        enemy_min_separation=20,
+        coin_count_range=(0, 0),
+        health_density=0.0,
+        lives_per_level=0,
+        powerup_density=0.0,
+        phaseable_wall_chance=0.2,
+        coin_ratio=0.0,
+        multiplier=1.0,
+        biome="ember",
+        exit_style="center_floor",
+    ),
+
+    # Sky Hub (Act 4) - Vertical summit approach
+    "sky_hub": LevelGenConfig(
+        verticality_bias=0.6,
+        branchiness=0.25,
+        platform_band_step=3,
+        platform_len_range=(4, 7),
+        pillar_chance=0.15,
+        hole_chance=0.05,
+        hazard_rate=0.0,  # NO HAZARDS
+        enemy_density=0.0,  # NO ENEMIES
+        enemy_min_separation=20,
+        coin_count_range=(0, 0),
+        health_density=0.0,
+        lives_per_level=0,
+        powerup_density=0.0,
+        phaseable_wall_chance=0.15,
+        coin_ratio=0.0,
+        multiplier=1.0,
+        biome="sky",
+        exit_style="center_floor",
+    ),
+}
+
+
+def get_hub_seed(hub_name: str) -> int:
+    """
+    Get deterministic seed for hub level generation.
+    Same hub always generates the same layout.
+
+    Args:
+        hub_name: Name of the hub (e.g., "lantern_hub", "hollow_hub")
+
+    Returns:
+        Integer seed for level generation
+    """
+    # Use hash of hub name for consistent seeding
+    import hashlib
+    seed_str = f"hub_seed_{hub_name}_v1"
+    return int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)

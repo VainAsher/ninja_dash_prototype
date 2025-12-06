@@ -1,14 +1,19 @@
 """
-Hollow Hub - Act 2 Recovery Hub
+Hollow Hub - Act 2 Hub (Enhanced)
 
-The dark, oppressive area after the Veil Maiden strips your power.
-A place of recovery and rebuilding.
+The dark, cramped depths after being hollowed.
+Uses procedural level generation with fixed seed for consistent layout.
+Features patrolling NPCs and mission exit points.
 """
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base_hub import CampaignHub, NPC, MissionBoard
+import pygame
+
+from .base_hub import CampaignHub
+from entities.hub_npc import HubNPC
+from entities.hub_exit import HubExit, get_missions_for_act, ExitState
 
 if TYPE_CHECKING:
     from core.game import Game
@@ -16,89 +21,123 @@ if TYPE_CHECKING:
 
 class HollowHub(CampaignHub):
     """
-    Hollow Hub - The depths after losing your light.
+    Hollow Hub - The depths after being hollowed.
 
-    Act 2: Recovery and rebuilding
-    NPCs: Shade Hermit, survivors
-    Theme: Dark, oppressive, but not hopeless
+    Act 2: Survival in the darkness
+    Features:
+    - Mysterious patrolling NPCs
+    - Challenging mission exits
+    - Limited shop access
     """
 
     def __init__(self, game: Game):
         super().__init__(game)
+        self.hub_name = "hollow_hub"
         self.title = "Hollow Depths - Refuge"
-        self.bg_color = (8, 8, 18)  # Very dark purple-black
+        self.bg_color = (5, 5, 15)
+        self.biome = "hollow"
 
     def get_act_number(self) -> int:
         return 2
 
+    def get_hub_config_name(self) -> str:
+        return "hollow_hub"
+
     def setup_npcs(self) -> None:
-        """Setup Hollow Hub NPCs and mission board."""
-        # Mission board (center-right) - appears more ominous
-        self.mission_board = MissionBoard(
-            name="Descent Map",
-            x=850,
-            y=450
-        )
+        """Setup Hollow Hub NPCs and mission exits."""
 
-        # Shade Hermit (mysterious guide) - unlocked after first Hollow mission
-        hermit = NPC(
+        # ===== PATROLLING NPCs =====
+
+        # Shade Hermit - Mysterious guide
+        hermit = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Shade Hermit",
-            x=250,
-            y=500,
-            color=(80, 40, 120)  # Dark purple
+            role="lore",
+            dialogue=[
+                "Shade Hermit: So... you've been hollowed too.",
+                "Shade Hermit: I've lived here for ages... or has it been moments?",
+                "Shade Hermit: Time moves strangely in the depths.",
+                "Shade Hermit: Your abilities... they're fading, aren't they?",
+                "Shade Hermit: The only way forward is through.",
+                "Shade Hermit: Collect the scroll fragments. They hold forgotten power.",
+            ],
+            patrol_range=80,
+            speed=25.0
         )
-        hermit.is_unlocked = self.game.campaign_state.npc_unlocked.get("shade_hermit", False)
-        hermit.dialogue = [
-            "Shade Hermit: ...So you fell here too.",
-            "Shade Hermit: The Veil Maiden takes from all who face her.",
-            "Shade Hermit: But you're not hollow. Not yet.",
-            "Shade Hermit: These depths hold fragments of forgotten scrolls...",
-            "Shade Hermit: Collect them. Piece together what was lost.",
-            "Shade Hermit: Or remain empty forever.",
-        ]
-        self.npcs.append(hermit)
+        # Check if unlocked
+        hermit.is_unlocked = self.game.campaign_state.npc_unlocked.get("shade_hermit", True)
 
-        # Survivor NPC (center) - always available
-        survivor = NPC(
+        # Lost Warrior - Fellow hollowed
+        warrior = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Lost Warrior",
-            x=500,
-            y=500,
-            color=(60, 60, 90)
+            role="trainer",
+            dialogue=[
+                "Lost Warrior: I was a warrior once... like you.",
+                "Lost Warrior: The Veil Maiden took everything from me.",
+                "Lost Warrior: But I'm learning... adapting...",
+                "Lost Warrior: Even hollowed, we can still fight.",
+                "Lost Warrior: Find the Ember Monastery. There is hope there.",
+            ],
+            patrol_range=120,
+            speed=30.0
         )
-        survivor.dialogue = [
-            "Lost Warrior: I... I can't remember who I was.",
-            "Lost Warrior: The darkness took everything.",
-            "Lost Warrior: Are you here to save us? Or join us?",
-            "Lost Warrior: Be careful. The deeper you go, the less returns.",
-        ]
-        self.npcs.append(survivor)
 
-        # Warning NPC (right side)
-        watcher = NPC(
+        # Hollow Watcher - Silent observer
+        watcher = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Hollow Watcher",
-            x=650,
-            y=500,
-            color=(100, 40, 40)
+            role="wanderer",
+            dialogue=[
+                "Hollow Watcher: ...",
+                "Hollow Watcher: *The figure stares silently*",
+                "Hollow Watcher: ...deeper...",
+            ],
+            patrol_range=60,
+            speed=15.0
         )
-        watcher.dialogue = [
-            "Hollow Watcher: Turn back while you still can.",
-            "Hollow Watcher: Every step deeper steals more of you.",
-            "Hollow Watcher: But if you must go on... hunt for the scrolls.",
-            "Hollow Watcher: They're the only way to regain what was taken.",
-        ]
-        self.npcs.append(watcher)
 
-    def draw(self, surface):
+        # Scavenger - Shop NPC (limited)
+        scavenger = self.npc_manager.spawn_npc(
+            x=0, y=0,
+            name="Scavenger",
+            role="shop",
+            dialogue=[
+                "Scavenger: Found some things... might be useful.",
+                "Scavenger: Not much to trade down here...",
+                "Scavenger: Take what you need. We're all just surviving.",
+            ],
+            is_shop=True,
+            patrol_range=100,
+            speed=20.0
+        )
+
+        # Place NPCs on platforms
+        self._place_hub_npcs()
+
+        # ===== MISSION EXITS =====
+
+        missions = get_missions_for_act(2)
+
+        for mission in missions:
+            self.exit_manager.create_exit(
+                x=0, y=0,
+                mission=mission
+            )
+
+        self._place_hub_exits()
+
+    def draw(self, surface: pygame.Surface) -> None:
         """Override draw to add atmospheric effects."""
         super().draw(surface)
 
         # Add darkness vignette effect
-        import pygame
-        # Create dark overlay at edges
         vignette = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
-        # Draw dark circles at edges
-        for i in range(200, 0, -20):
-            alpha = int((200 - i) * 0.3)
+
+        # Draw dark gradient at edges
+        for i in range(150, 0, -15):
+            alpha = int((150 - i) * 0.5)
+            # Corners
             pygame.draw.circle(vignette, (0, 0, 0, alpha), (0, 0), i)
             pygame.draw.circle(vignette, (0, 0, 0, alpha), (surface.get_width(), 0), i)
             pygame.draw.circle(vignette, (0, 0, 0, alpha), (0, surface.get_height()), i)
