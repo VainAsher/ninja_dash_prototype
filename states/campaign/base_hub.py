@@ -456,7 +456,7 @@ class CampaignHub(GameState, ABC):
         # Update player
         if self.player:
             keys = pygame.key.get_pressed()
-            self.player.update(dt, keys, self.world, self.tiles, self.phaseable_walls)
+            self.player.update(keys, self.tiles, dt, self.phaseable_walls)
 
         # Update NPCs
         self.npc_manager.update(dt, self.world)
