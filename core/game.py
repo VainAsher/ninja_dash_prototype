@@ -525,6 +525,25 @@ class Game:
         self.current_state = self.states[name]
         self.current_state.enter()
 
+    def push_state(self, state: GameState) -> None:
+        """Push a state onto the state stack (for dialogs/overlays)."""
+        if not hasattr(self, 'state_stack'):
+            self.state_stack = []
+        if self.current_state:
+            self.state_stack.append(self.current_state)
+        self.current_state = state
+        self.current_state.enter()
+
+    def pop_state(self) -> None:
+        """Pop the current state and return to the previous one."""
+        if not hasattr(self, 'state_stack') or not self.state_stack:
+            # No state to pop to, go back to menu
+            self.change_state("menu")
+            return
+        if self.current_state:
+            self.current_state.exit()
+        self.current_state = self.state_stack.pop()
+
     # ---------------- Core operations ----------------
 
     def quit(self) -> None:

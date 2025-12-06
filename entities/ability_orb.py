@@ -162,6 +162,7 @@ class AbilityOrb:
         Handle ability orb collection in campaign mode.
 
         Adds a scroll fragment for the current act and checks if a scroll was completed.
+        In early acts without scrolls, grants currency/fragments instead.
 
         Returns:
             List of newly unlocked ability names
@@ -175,8 +176,10 @@ class AbilityOrb:
         act_scrolls = get_scroll_for_act(campaign_state.act)
 
         if not act_scrolls:
-            # No scrolls in this act (Acts 0 and 1)
-            print(f"ℹ️  No scrolls available in Act {campaign_state.act}")
+            # No scrolls in this act (Acts 0 and 1) - give currency instead
+            currency_reward = 75  # Bonus fragments
+            campaign_state.add_currency(currency_reward)
+            print(f"💎 Ability Orb collected! +{currency_reward} fragments")
             return newly_unlocked
 
         # For now, pick the first incomplete scroll in the act
@@ -198,8 +201,7 @@ class AbilityOrb:
                     # Immediately enable in player
                     player = getattr(game, 'player', None)
                     if player:
-                        # Convert ability name to player method if needed
-                        # For now, just notify
+                        player.unlock_ability(ability_name)
                         print(f"✨ {ability_name} unlocked from scroll: {scroll_id}!")
 
                 # Only collect one fragment per orb

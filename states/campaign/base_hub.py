@@ -272,8 +272,9 @@ class CampaignHub(GameState, ABC):
                 x, y = valid_positions[i]
                 npc.spawn_x = x
                 npc.spawn_y = y
-                npc.rect.x = x
-                npc.rect.y = y - npc.rect.height
+                # Center NPC on the position
+                npc.rect.centerx = x
+                npc.rect.bottom = y
 
     def _place_hub_exits(self) -> None:
         """
@@ -308,7 +309,7 @@ class CampaignHub(GameState, ABC):
         # Scan for floor tiles with empty space above
         for ty in range(1, len(self.world) - 1):
             for tx in range(1, len(self.world[0]) - 1):
-                # Check if this is a floor tile with space above
+                # Check if this is a floor tile with space above (at least 3 tiles)
                 if (self.world[ty][tx] == 1 and
                     self.world[ty - 1][tx] == 0 and
                     self.world[ty - 2][tx] == 0):
@@ -317,19 +318,28 @@ class CampaignHub(GameState, ABC):
                     x = tx * TILE_SIZE + TILE_SIZE // 2
                     y = ty * TILE_SIZE
 
-                    # Check minimum distance from player spawn
+                    # Check minimum distance from player spawn (reduced from 5 to 3 tiles)
                     spawn_dist = abs(x - self.spawn[0])
-                    if spawn_dist > TILE_SIZE * 5:
+                    if spawn_dist > TILE_SIZE * 3:
                         positions.append((x, y))
 
-        # Sort by distance from spawn (spread NPCs out)
+        # Sort by distance from spawn
         positions.sort(key=lambda p: abs(p[0] - self.spawn[0]) + abs(p[1] - self.spawn[1]))
 
-        # Spread positions out - take every Nth position
+        # Spread positions out - take every 3rd position for better distribution
         spread_positions = []
-        for i in range(0, len(positions), 5):
-            if i < len(positions):
-                spread_positions.append(positions[i])
+        min_spacing = TILE_SIZE * 4  # Minimum spacing between positions
+
+        for pos in positions:
+            # Check if this position is far enough from all selected positions
+            too_close = False
+            for selected in spread_positions:
+                dist = ((pos[0] - selected[0]) ** 2 + (pos[1] - selected[1]) ** 2) ** 0.5
+                if dist < min_spacing:
+                    too_close = True
+                    break
+            if not too_close:
+                spread_positions.append(pos)
 
         return spread_positions
 
@@ -459,7 +469,7 @@ class CampaignHub(GameState, ABC):
             self.player.update(keys, self.tiles, dt, self.phaseable_walls)
 
         # Update NPCs
-        self.npc_manager.update(dt, self.world)
+        self.npc_manager.update(dt, self.tiles)
 
         # Update exit animations
         self.exit_manager.update(dt)

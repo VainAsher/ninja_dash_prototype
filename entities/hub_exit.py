@@ -154,6 +154,10 @@ class HubExit:
     def draw(self, surface: pygame.Surface, camera_offset: Tuple[int, int] = (0, 0),
              show_prompt: bool = False) -> None:
         """Draw the exit gate."""
+        # Don't draw locked or completed exits
+        if self.state == ExitState.LOCKED or self.state == ExitState.COMPLETED:
+            return
+
         cam_x, cam_y = camera_offset
         screen_x = self.rect.x - cam_x
         screen_y = self.rect.y - cam_y
