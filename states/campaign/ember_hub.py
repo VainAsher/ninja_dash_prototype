@@ -1,14 +1,19 @@
 """
-Ember Monastery - Act 3 Rebuilding Hub
+Ember Monastery - Act 3 Hub (Enhanced)
 
 The warm monastery where you rebuild your skills and gear.
-Forge, training grounds, and wise monks.
+Uses procedural level generation with fixed seed for consistent layout.
+Features patrolling NPCs and mission exit points.
 """
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base_hub import CampaignHub, NPC, MissionBoard, Shop
+import pygame
+
+from .base_hub import CampaignHub
+from entities.hub_npc import HubNPC
+from entities.hub_exit import HubExit, get_missions_for_act, ExitState
 
 if TYPE_CHECKING:
     from core.game import Game
@@ -19,86 +24,121 @@ class EmberHub(CampaignHub):
     Ember Monastery - Place of rebirth and crafting.
 
     Act 3: Rebuilding power and equipment
-    NPCs: Smith Monk, Listening Elder
-    Theme: Warm, hopeful, industrious
+    Features:
+    - Smith Monk shop
+    - Training masters
+    - Mission exits for monastery trials
     """
 
     def __init__(self, game: Game):
         super().__init__(game)
+        self.hub_name = "ember_hub"
         self.title = "Ember Monastery - Forge of Renewal"
-        self.bg_color = (25, 15, 10)  # Dark reddish-brown
+        self.bg_color = (25, 15, 10)
+        self.biome = "ember"
 
     def get_act_number(self) -> int:
         return 3
 
+    def get_hub_config_name(self) -> str:
+        return "ember_hub"
+
     def setup_npcs(self) -> None:
-        """Setup Ember Hub NPCs and mission board."""
-        # Mission board (center-right)
-        self.mission_board = MissionBoard(
-            name="Training Hall",
-            x=900,
-            y=450
-        )
+        """Setup Ember Hub NPCs and mission exits."""
 
-        # Smith Monk (equipment upgrades) - unlocked after Weightbound Ogre
-        smith = NPC(
+        # ===== PATROLLING NPCs =====
+
+        # Smith Monk - Equipment upgrades
+        smith = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Smith Monk",
-            x=200,
-            y=500,
-            color=(255, 120, 40)  # Bright orange
+            role="shop",
+            dialogue=[
+                "Smith Monk: The forge burns eternal here.",
+                "Smith Monk: I can craft equipment worthy of your journey.",
+                "Smith Monk: Bring me fragments, and I'll arm you for battle.",
+            ],
+            is_shop=True,
+            patrol_range=60,
+            speed=20.0
         )
-        smith.is_unlocked = self.game.campaign_state.npc_unlocked.get("smith_monk", True)  # Start unlocked for testing
-        # Smith Monk is now a shop! (No dialogue needed, opens shop directly)
-        self.npcs.append(smith)
+        smith.is_unlocked = self.game.campaign_state.npc_unlocked.get("smith_monk", True)
 
-        # Register Smith Monk as a shop
-        self.shops["Smith Monk"] = Shop(smith)
-
-        # Listening Elder (lore and guidance)
-        elder = NPC(
+        # Listening Elder - Lore and guidance
+        elder = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Listening Elder",
-            x=450,
-            y=500,
-            color=(180, 140, 80)  # Golden brown
+            role="lore",
+            dialogue=[
+                "Listening Elder: Ah, another soul seeking answers.",
+                "Listening Elder: You carry the mark of the Hollow...",
+                "Listening Elder: Yet you resist its pull. Impressive.",
+                "Listening Elder: The Veil Maiden was once human, like us.",
+                "Listening Elder: Her story is a warning. Do not let vengeance consume you.",
+                "Listening Elder: Find your Inner Lantern before the final trial.",
+            ],
+            patrol_range=100,
+            speed=25.0
         )
-        elder.is_unlocked = self.game.campaign_state.npc_unlocked.get("listening_elder", True)  # Start unlocked
-        elder.dialogue = [
-            "Listening Elder: Ah, another soul seeking answers.",
-            "Listening Elder: You carry the mark of the Hollow...",
-            "Listening Elder: Yet you resist its pull. Impressive.",
-            "Listening Elder: The Veil Maiden was once human, like us.",
-            "Listening Elder: Her story is a warning. Do not let vengeance consume you.",
-            "Listening Elder: Find your Inner Lantern before the final trial.",
-        ]
-        self.npcs.append(elder)
+        elder.is_unlocked = self.game.campaign_state.npc_unlocked.get("listening_elder", True)
 
-        # Training Master (combat tips)
-        trainer = NPC(
+        # Master Kenzo - Training
+        trainer = self.npc_manager.spawn_npc(
+            x=0, y=0,
             name="Master Kenzo",
-            x=700,
-            y=500,
-            color=(200, 80, 60)
+            role="trainer",
+            dialogue=[
+                "Master Kenzo: You're getting stronger. I can see it.",
+                "Master Kenzo: But strength without technique is wasted.",
+                "Master Kenzo: Remember: timing beats power.",
+                "Master Kenzo: The scrolls you find will teach you new techniques.",
+                "Master Kenzo: Master them before facing the summit.",
+            ],
+            patrol_range=150,
+            speed=35.0
         )
-        trainer.dialogue = [
-            "Master Kenzo: You're getting stronger. I can see it.",
-            "Master Kenzo: But strength without technique is wasted.",
-            "Master Kenzo: Remember: timing beats power.",
-            "Master Kenzo: The scrolls you find will teach you new techniques.",
-            "Master Kenzo: Master them before facing the summit.",
-        ]
-        self.npcs.append(trainer)
 
-    def draw(self, surface):
+        # Forge Apprentice - Ambient
+        apprentice = self.npc_manager.spawn_npc(
+            x=0, y=0,
+            name="Forge Apprentice",
+            role="wanderer",
+            dialogue=[
+                "Forge Apprentice: The flames here never die...",
+                "Forge Apprentice: They say they've burned since the first age.",
+                "Forge Apprentice: I hope to be a master smith one day!",
+            ],
+            patrol_range=80,
+            speed=40.0
+        )
+
+        # Place NPCs on platforms
+        self._place_hub_npcs()
+
+        # ===== MISSION EXITS =====
+
+        missions = get_missions_for_act(3)
+
+        for mission in missions:
+            self.exit_manager.create_exit(
+                x=0, y=0,
+                mission=mission
+            )
+
+        self._place_hub_exits()
+
+    def draw(self, surface: pygame.Surface) -> None:
         """Override draw to add warm glow effects."""
         super().draw(surface)
 
         # Add warm glow from forge
-        import pygame
-        glow = pygame.Surface((100, 100), pygame.SRCALPHA)
-        for i in range(50, 0, -5):
-            alpha = int((50 - i) * 2)
+        glow = pygame.Surface((120, 120), pygame.SRCALPHA)
+        for i in range(60, 0, -5):
+            alpha = int((60 - i) * 2)
             color = (255, 150, 50, alpha)
-            pygame.draw.circle(glow, color, (50, 50), i)
+            pygame.draw.circle(glow, color, (60, 60), i)
 
-        # Place glow near smith
-        surface.blit(glow, (150, 420), special_flags=pygame.BLEND_ALPHA_SDL2)
+        # Place multiple glows around the monastery
+        glow_positions = [(100, 300), (400, 200), (700, 350)]
+        for pos in glow_positions:
+            surface.blit(glow, pos, special_flags=pygame.BLEND_ADD)
