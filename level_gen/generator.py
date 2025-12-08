@@ -57,6 +57,40 @@ from .utils import pixel_to_tile, is_on_boundary
 
 # Helper functions for world building
 
+def _stitch_rooms_to_world(room_nodes: Dict[Tuple[int, int], Any]) -> List[List[int]]:
+    """
+    Stitch zone-generated rooms into a single world tilemap.
+
+    Args:
+        room_nodes: Dictionary of room nodes with tilemaps
+
+    Returns:
+        2D world tile array
+    """
+    # Initialize world
+    world = [[0 for _ in range(WORLD_W)] for _ in range(WORLD_H)]
+
+    # Stitch each room
+    for (rx, ry), room in room_nodes.items():
+        if room.tilemap is None:
+            continue
+
+        # Calculate room offset in world
+        ox = rx * ROOM_W
+        oy = ry * ROOM_H
+
+        # Copy room tilemap to world
+        for y in range(ROOM_H):
+            if oy + y >= WORLD_H:
+                continue
+            for x in range(ROOM_W):
+                if ox + x >= WORLD_W:
+                    continue
+                world[oy + y][ox + x] = room.tilemap[y][x]
+
+    return world
+
+
 def _build_room_floors(
     world: List[List[int]],
     path_mask: List[List[bool]],
@@ -617,6 +651,7 @@ def generate_level(
     diff_cfg: Optional[Union[Dict[str, Any], LevelGenConfig]] = None,
     abilities: Optional[List[str]] = None,
     config: Optional[LevelGenConfig] = None,
+    use_zone_generation: bool = True,  # NEW: Enable zone-based generation
 ) -> Tuple[
     List[List[int]],
     List[pygame.Rect],
@@ -629,7 +664,8 @@ def generate_level(
     List[Dict[str, Any]],
     List[pygame.Rect],
     List[pygame.Rect],
-    List[Tuple[int, int]]
+    List[Tuple[int, int]],
+    Optional[Dict[Tuple[int, int], Any]]  # NEW: room_nodes for minimap
 ]:
     """
     Generate a complete level with ability-aware features.
@@ -639,9 +675,11 @@ def generate_level(
         diff_cfg: (Deprecated) Difficulty configuration dictionary. Use `config` parameter instead.
         abilities: List of enabled ability strings (e.g., ['DOUBLE_JUMP', 'DASH'])
         config: Type-safe LevelGenConfig instance (recommended over diff_cfg)
+        use_zone_generation: Whether to use zone-based generation (default True)
 
     Returns:
-        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions)
+        Tuple of (world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups,
+                  phaseable_walls, ability_orbs, enemy_positions, room_nodes)
         - world: 2D tile array
         - tiles: List of solid tile rectangles
         - exit_rect: Exit rectangle
@@ -654,19 +692,20 @@ def generate_level(
         - phaseable_walls: List of phaseable wall rectangles (for Shadow Step)
         - ability_orbs: List of ability orb rectangles
         - enemy_positions: List of enemy spawn positions (x, y) in pixels
+        - room_nodes: Dict of room nodes for minimap (None if zone gen disabled)
 
     Example:
-        >>> # Using new config parameter (recommended)
+        >>> # Using zone generation (new default)
         >>> from level_gen.config import LevelGenConfig, HARD_CONFIG
-        >>> world, *rest = generate_level(seed=42, config=HARD_CONFIG)
+        >>> world, *rest, room_nodes = generate_level(seed=42, config=HARD_CONFIG)
 
-        >>> # Using old dict-based config (backward compatible)
-        >>> old_cfg = {'hazard_rate': 0.05, 'coin_density': 0.04}
-        >>> world, *rest = generate_level(seed=42, diff_cfg=old_cfg)
+        >>> # Disable zone generation (use old system)
+        >>> world, *rest, room_nodes = generate_level(seed=42, use_zone_generation=False)
 
         >>> # With abilities enabled
         >>> abilities = ['DOUBLE_JUMP', 'WALL_JUMP', 'DASH']
-        >>> world, *rest = generate_level(seed=42, config=HARD_CONFIG, abilities=abilities)
+        >>> world, *rest, room_nodes = generate_level(seed=42, config=HARD_CONFIG,
+        ...                                            abilities=abilities)
     """
     # Handle configuration parameter priority: config > diff_cfg > defaults
     if config is not None:
@@ -696,8 +735,69 @@ def generate_level(
     if not path:
         path = [(x, ROOM_ROWS - 1) for x in range(ROOM_COLS)] + [(ROOM_COLS - 1, y) for y in range(ROOM_ROWS - 2, -1, -1)]
 
-    # Build world
-    world, path_mask = build_world_from_path(path, cfg.exit_style)
+    # NEW: Zone-based generation (if enabled)
+    room_nodes = None
+    if use_zone_generation:
+        try:
+            from .zone_generator import RoomNode, assign_zone_roles_for_room, ROOM_START, ROOM_EXIT
+            from .zone_integration import (
+                generate_room_from_zones, log_generation_start,
+                log_room_generation, log_generation_complete
+            )
+            import time
+
+            start_time = time.time()
+            log_generation_start(seed or 0, f"{cfg.biome}_{ROOM_COLS}x{ROOM_ROWS}")
+
+            # Create room nodes with types
+            room_nodes = {}
+            for i, rc in enumerate(path):
+                rx, ry = rc
+
+                # Determine room type
+                if rc == start:
+                    room_type = ROOM_START
+                elif rc == goal:
+                    room_type = ROOM_EXIT
+                else:
+                    room_type = "combat"  # Default
+
+                # Create room node
+                room = RoomNode(rx, ry, room_type, rng.randrange(10**9))
+
+                # Set neighbors (from maze)
+                for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
+                    nb = (rx + dx, ry + dy)
+                    if nb in [rooms[r] for r in rooms if rooms[r]]:
+                        room.neighbors.add(nb)
+
+                # Assign zone roles
+                room_rng = random.Random(room.seed)
+                room.zone_roles = assign_zone_roles_for_room(room, room_rng)
+
+                # Generate tilemap from zones
+                room.tilemap, room.anchor_candidates = generate_room_from_zones(
+                    room, room.zone_roles, room_rng, ROOM_W, ROOM_H
+                )
+
+                room_nodes[rc] = room
+                log_room_generation(rc, room.type, i + 1, len(path))
+
+            # Stitch rooms into world tilemap
+            world = _stitch_rooms_to_world(room_nodes)
+            path_mask = [[False for _ in range(WORLD_W)] for _ in range(WORLD_H)]
+
+            duration = time.time() - start_time
+            log_generation_complete(len(room_nodes), duration)
+
+        except ImportError as e:
+            print(f"[WorldGen] Zone system unavailable: {e}")
+            print(f"[WorldGen] Falling back to standard generation")
+            use_zone_generation = False
+
+    # Fallback: Standard world building
+    if not use_zone_generation:
+        world, path_mask = build_world_from_path(path, cfg.exit_style)
 
     # Decorate
     decorate_world(
@@ -755,4 +855,4 @@ def generate_level(
     entity_placer = EntityPlacer(world, rng)
     enemy_positions = entity_placer.generate_enemies(enemy_density, spawn, enemy_min_separation)
 
-    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions
+    return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions, room_nodes
