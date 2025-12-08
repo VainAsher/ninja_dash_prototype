@@ -765,11 +765,12 @@ def generate_level(
                 # Create room node
                 room = RoomNode(rx, ry, room_type, rng.randrange(10**9))
 
-                # Set neighbors (from maze)
-                for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
-                    nb = (rx + dx, ry + dy)
-                    if nb in [rooms[r] for r in rooms if rooms[r]]:
-                        room.neighbors.add(nb)
+                # Set neighbors from path (consecutive rooms in path are neighbors)
+                # This is sufficient for connectivity
+                if i > 0:
+                    room.neighbors.add(path[i - 1])
+                if i < len(path) - 1:
+                    room.neighbors.add(path[i + 1])
 
                 # Assign zone roles
                 room_rng = random.Random(room.seed)
