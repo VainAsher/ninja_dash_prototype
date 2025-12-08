@@ -106,3 +106,49 @@ __all__ = [
 ]
 
 __version__ = '1.0.0'
+
+# =========================================================
+# ZONE-BASED GENERATION (NEW SYSTEM)
+# =========================================================
+# Import zone-based generation components for granular room customization
+try:
+    from .zone_generator import (
+        RoomNode,
+        assign_zone_roles_for_room,
+        ROOM_START, ROOM_EXIT, ROOM_SHOP, ROOM_COMBAT,
+        ROOM_PLATFORM, ROOM_TREASURE, ROOM_BOSS, ROOM_SAFE,
+        Z_WALK, Z_FILL, Z_PLAT, Z_DECOR, Z_SAVE, Z_SHOP, Z_LOOT, Z_SECRET,
+        print_zone_roles,
+    )
+    from .zone_integration import (
+        generate_room_from_zones,
+        log_generation_start,
+        log_room_generation,
+        log_generation_complete,
+        log_feature_placement,
+    )
+    from .tileset import TileSet, draw_tiles, validate_tiles
+
+    # Add to public API
+    __all__.extend([
+        # Zone system core
+        'RoomNode',
+        'assign_zone_roles_for_room',
+        'generate_room_from_zones',
+        'print_zone_roles',
+        # Room types
+        'ROOM_START', 'ROOM_EXIT', 'ROOM_SHOP', 'ROOM_COMBAT',
+        'ROOM_PLATFORM', 'ROOM_TREASURE', 'ROOM_BOSS', 'ROOM_SAFE',
+        # Zone roles
+        'Z_WALK', 'Z_FILL', 'Z_PLAT', 'Z_DECOR',
+        'Z_SAVE', 'Z_SHOP', 'Z_LOOT', 'Z_SECRET',
+        # Tileset rendering
+        'TileSet', 'draw_tiles', 'validate_tiles',
+        # Logging utilities
+        'log_generation_start', 'log_room_generation',
+        'log_generation_complete', 'log_feature_placement',
+    ])
+except ImportError as e:
+    # Zone system is optional - game will work without it
+    print(f"[Level Gen] Zone system not available: {e}")
+    print("[Level Gen] Using standard generation only")
