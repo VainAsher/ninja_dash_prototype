@@ -786,6 +786,11 @@ def generate_level(
 
             # Stitch rooms into world tilemap
             world = _stitch_rooms_to_world(room_nodes)
+
+            # Add doors between connected rooms
+            from .zone_integration import add_doors_between_rooms
+            add_doors_between_rooms(world, room_nodes, ROOM_W, ROOM_H)
+
             path_mask = [[False for _ in range(WORLD_W)] for _ in range(WORLD_H)]
 
             duration = time.time() - start_time

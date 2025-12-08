@@ -16,7 +16,7 @@ from level_gen.zone_generator import (
     ZONES_W, ZONES_H, AIR, WALL, PLATFORM, EXIT, DOOR,
     ROOM_START, ROOM_EXIT, ROOM_SHOP, ROOM_COMBAT, ROOM_PLATFORM,
     ROOM_TREASURE, ROOM_BOSS, ROOM_SAFE,
-    print_zone_roles
+    print_zone_roles, zone_center_tile
 )
 
 import pygame
@@ -308,3 +308,76 @@ def log_generation_complete(room_count: int, duration: float = 0.0) -> None:
     if duration > 0:
         print(f"[WorldGen] Time: {duration:.3f}s")
     print("=" * 60 + "\n")
+
+
+# =========================================================
+# DOOR GENERATION
+# =========================================================
+def add_doors_between_rooms(tilemap: List[List[int]], room_nodes: Dict[Tuple[int, int], RoomNode],
+                            room_w: int, room_h: int) -> None:
+    """
+    Add doors between connected rooms in the tilemap.
+
+    Creates doorways where rooms connect, allowing player to traverse between rooms.
+
+    Args:
+        tilemap: World tilemap (modified in-place)
+        room_nodes: Dictionary of room nodes with neighbor information
+        room_w: Room width in tiles
+        room_h: Room height in tiles
+    """
+    h = len(tilemap)
+    w = len(tilemap[0])
+
+    # Process each room
+    for (rx, ry), room in room_nodes.items():
+        # Calculate room offset in world
+        ox = rx * room_w
+        oy = ry * room_h
+
+        # Check each potential neighbor direction
+        for nb_coord in room.neighbors:
+            nx, ny = nb_coord
+            dx, dy = nx - rx, ny - ry
+
+            # Only process each connection once (smaller coord processes it)
+            if nb_coord < (rx, ry):
+                continue
+
+            # Horizontal connection (left/right)
+            if dy == 0 and abs(dx) == 1:
+                # Create vertical door at room edge
+                if dx == 1:  # Neighbor to the right
+                    door_x = ox + room_w - 1
+                else:  # Neighbor to the left
+                    door_x = ox
+
+                # Place door in middle of edge (3 tiles tall)
+                center_y = oy + room_h // 2
+                for door_y in range(center_y - 1, center_y + 2):
+                    if 0 <= door_x < w and 0 <= door_y < h:
+                        tilemap[door_y][door_x] = DOOR
+                        # Clear space next to door
+                        if dx == 1 and door_x + 1 < w:
+                            tilemap[door_y][door_x + 1] = AIR
+                        elif dx == -1 and door_x - 1 >= 0:
+                            tilemap[door_y][door_x - 1] = AIR
+
+            # Vertical connection (up/down)
+            elif dx == 0 and abs(dy) == 1:
+                # Create horizontal door at room edge
+                if dy == 1:  # Neighbor below
+                    door_y = oy + room_h - 1
+                else:  # Neighbor above
+                    door_y = oy
+
+                # Place door in middle of edge (5 tiles wide)
+                center_x = ox + room_w // 2
+                for door_x in range(center_x - 2, center_x + 3):
+                    if 0 <= door_x < w and 0 <= door_y < h:
+                        tilemap[door_y][door_x] = DOOR
+                        # Clear space next to door
+                        if dy == 1 and door_y + 1 < h:
+                            tilemap[door_y + 1][door_x] = AIR
+                        elif dy == -1 and door_y - 1 >= 0:
+                            tilemap[door_y - 1][door_x] = AIR
