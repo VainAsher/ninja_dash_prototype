@@ -35,16 +35,18 @@ from .utils import valid_pickup_spot, far_from_hazards, pixel_to_tile
 class EntityPlacer:
     """Handles placement of all entities (coins, pickups, powerups, hazards, ability orbs)."""
 
-    def __init__(self, world: List[List[int]], rng: random.Random) -> None:
+    def __init__(self, world: List[List[int]], rng: random.Random, path_mask: Optional[List[List[bool]]] = None) -> None:
         """
         Initialize the entity placer.
 
         Args:
             world: 2D level array
             rng: Random number generator
+            path_mask: Optional 2D boolean array marking valid placement areas
         """
         self.world = world
         self.rng = rng
+        self.path_mask = path_mask
 
     def _has_nearby_magnet(
         self,
@@ -85,6 +87,9 @@ class EntityPlacer:
         hazards = []
         for y in range(2, WORLD_H - 1):
             for x in range(1, WORLD_W - 1):
+                # Skip if path_mask is provided and this tile is not in a valid area
+                if self.path_mask is not None and not self.path_mask[y][x]:
+                    continue
                 if self.world[y][x] == 1 and self.world[y - 1][x] == 0 and self.world[y - 2][x] == 0:
                     if self.rng.random() < rate:
                         hx = x * TILE_SIZE + 2
@@ -144,6 +149,9 @@ class EntityPlacer:
         valid_locations = []
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
+                # Skip if path_mask is provided and this tile is not in a valid area
+                if self.path_mask is not None and not self.path_mask[ty][tx]:
+                    continue
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue
                 if not far_from_hazards(tx, ty, hazard_tiles, radius=HAZARD_SAFE_RADIUS):
@@ -259,6 +267,9 @@ class EntityPlacer:
 
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
+                # Skip if path_mask is provided and this tile is not in a valid area
+                if self.path_mask is not None and not self.path_mask[ty][tx]:
+                    continue
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue
 
@@ -287,6 +298,9 @@ class EntityPlacer:
 
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
+                # Skip if path_mask is provided and this tile is not in a valid area
+                if self.path_mask is not None and not self.path_mask[ty][tx]:
+                    continue
                 # Must be valid spawn location (same as other pickups)
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue
@@ -330,6 +344,9 @@ class EntityPlacer:
         # Scan for valid enemy spawn locations
         for ty in range(2, WORLD_H - 1):
             for tx in range(1, WORLD_W - 1):
+                # Skip if path_mask is provided and this tile is not in a valid area
+                if self.path_mask is not None and not self.path_mask[ty][tx]:
+                    continue
                 # Must be valid spawn location (on a platform)
                 if not valid_pickup_spot(self.world, tx, ty):
                     continue

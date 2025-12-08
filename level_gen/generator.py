@@ -791,7 +791,12 @@ def generate_level(
             from .zone_integration import add_doors_between_rooms
             add_doors_between_rooms(world, room_nodes, ROOM_W, ROOM_H)
 
+            # Mark all tiles within rooms as valid (for entity placement)
             path_mask = [[False for _ in range(WORLD_W)] for _ in range(WORLD_H)]
+            for (rx, ry), room in room_nodes.items():
+                for y in range(ROOM_H):
+                    for x in range(ROOM_W):
+                        path_mask[ry * ROOM_H + y][rx * ROOM_W + x] = True
 
             duration = time.time() - start_time
             log_generation_complete(len(room_nodes), duration)
@@ -805,17 +810,18 @@ def generate_level(
     if not use_zone_generation:
         world, path_mask = build_world_from_path(path, cfg.exit_style)
 
-    # Decorate
-    decorate_world(
-        world, path_mask, rng,
-        platform_band_step=cfg.platform_band_step,
-        platform_len_range=cfg.platform_len_range,
-        pillar_chance=cfg.pillar_chance,
-        hole_chance=cfg.hole_chance,
-    )
+    # Decorate (skip for zone generation - zones handle platforms internally)
+    if not use_zone_generation:
+        decorate_world(
+            world, path_mask, rng,
+            platform_band_step=cfg.platform_band_step,
+            platform_len_range=cfg.platform_len_range,
+            pillar_chance=cfg.pillar_chance,
+            hole_chance=cfg.hole_chance,
+        )
 
-    # Add ability-gated subrooms
-    if cfg.enable_ability_subrooms:
+    # Add ability-gated subrooms (skip for zone generation - incompatible with zone system)
+    if cfg.enable_ability_subrooms and not use_zone_generation:
         add_ability_subrooms(world, path_mask, rng, abilities, cfg.subroom_intensity)
 
     # Build solids
@@ -858,7 +864,7 @@ def generate_level(
     # Generate enemies (avoid player spawn area)
     enemy_density = cfg.enemy_density if hasattr(cfg, 'enemy_density') else 0.10
     enemy_min_separation = getattr(cfg, 'enemy_min_separation', 20)
-    entity_placer = EntityPlacer(world, rng)
+    entity_placer = EntityPlacer(world, rng, path_mask)
     enemy_positions = entity_placer.generate_enemies(enemy_density, spawn, enemy_min_separation)
 
     return world, tiles, exit_rect, spawn, coins, hazards, healths, lives, powerups, phaseable_walls, ability_orbs, enemy_positions, room_nodes
