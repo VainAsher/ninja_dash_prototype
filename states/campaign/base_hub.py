@@ -236,7 +236,8 @@ class CampaignHub(GameState, ABC):
             powerups,       # Will be empty for hubs
             phaseable_walls,
             ability_orbs,   # Will be empty for hubs
-            enemy_positions # Will be empty for hubs
+            enemy_positions, # Will be empty for hubs
+            room_nodes      # NEW: Room data for minimap (may be None)
         ) = generate_level(
             seed=seed,
             config=config,
