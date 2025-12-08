@@ -83,6 +83,7 @@ from ui.hud_components import (
     ExitGateIndicator
 )
 from ui.debug_overlay import DebugOverlay
+from ui.minimap_hud import MinimapHUD  # NEW: Minimap
 
 from gameplay_modifiers import get_modifiers
 
@@ -118,6 +119,7 @@ def draw_world(
     cam: pygame.Rect,
     debug: bool,
     biome: str = "lantern",
+    game: Any = None,  # NEW: Game instance for tileset access
 ) -> None:
     """Draw game world with all entities."""
     if not debug:
@@ -130,7 +132,7 @@ def draw_world(
         }
         play_surf.fill(bg_colors.get(biome, COLOR_BG))
 
-        # Biome-specific tile colors
+        # Biome-specific tile colors (fallback)
         tile_colors = {
             "lantern": (200, 180, 120),    # Warm golden stone
             "hollow": (40, 40, 70),        # Deep purple-gray
@@ -139,15 +141,33 @@ def draw_world(
         }
         ground_color = tile_colors.get(biome, COLOR_TILE)
 
-        # Tiles / phaseable walls
-        for t in tiles:
-            if cam.colliderect(t):
-                color = COLOR_PHASEABLE_WALL if t in phaseable_walls else ground_color
-                pygame.draw.rect(
-                    play_surf,
-                    color,
-                    (t.x - cam.x, t.y - cam.y, t.w, t.h),
-                )
+        # NEW: Try tileset rendering first
+        if game and hasattr(game, 'tileset') and game.tileset and hasattr(game, 'world') and game.world:
+            try:
+                from level_gen.tileset import draw_tiles
+                cam_vec = pygame.Vector2(cam.x, cam.y)
+                draw_tiles(play_surf, game.world, cam_vec, game.tileset, game.seed or 0, debug_grid=False)
+            except Exception as e:
+                print(f"[Rendering] Tileset draw failed: {e}, falling back to rects")
+                # Fall through to rect rendering
+                for t in tiles:
+                    if cam.colliderect(t):
+                        color = COLOR_PHASEABLE_WALL if t in phaseable_walls else ground_color
+                        pygame.draw.rect(
+                            play_surf,
+                            color,
+                            (t.x - cam.x, t.y - cam.y, t.w, t.h),
+                        )
+        else:
+            # Fallback: Colored rectangles
+            for t in tiles:
+                if cam.colliderect(t):
+                    color = COLOR_PHASEABLE_WALL if t in phaseable_walls else ground_color
+                    pygame.draw.rect(
+                        play_surf,
+                        color,
+                        (t.x - cam.x, t.y - cam.y, t.w, t.h),
+                    )
 
         # Hazards
         for h in hazards:
@@ -445,6 +465,11 @@ class Game:
         self.campaign_state: CampaignState = CampaignState()
         self.current_biome: str = "lantern"  # Current biome for rendering
 
+        # Zone system (NEW)
+        self.room_nodes: Any = None  # Room nodes for minimap
+        self.current_room: Tuple[int, int] = (0, 0)  # Current room coordinates
+        self.tileset: Any = None  # Tileset for sprite rendering
+
         # World / entities
         self.world: Any = None
         self.tiles: List[pygame.Rect] = []
@@ -478,6 +503,7 @@ class Game:
         # Gameplay modifiers and debug overlay
         self.modifiers = get_modifiers()
         self.debug_overlay = DebugOverlay()
+        self.minimap_hud = MinimapHUD()  # NEW: Minimap HUD
 
         # State machine
         self.states: Dict[str, GameState] = {}
@@ -598,11 +624,13 @@ class Game:
                 phaseable_walls,
                 ability_orb_rects,
                 enemy_positions,
+                room_nodes,
             ) = generate_level(
                 seed=self.seed,
                 config=config,
                 abilities=self.abilities,
             )
+            self.room_nodes = room_nodes  # Store for minimap
 
             # Get multiplier from campaign config
             base_multiplier = config.multiplier
@@ -627,11 +655,13 @@ class Game:
                 phaseable_walls,
                 ability_orb_rects,
                 enemy_positions,
+                room_nodes,
             ) = generate_level(
                 seed=self.seed,
                 diff_cfg=cfg,
                 abilities=self.abilities,
             )
+            self.room_nodes = room_nodes  # Store for minimap
 
             # Get multiplier from difficulty config
             cfg_for_diff = DIFFICULTY_CONFIG[self.difficulty]
@@ -641,6 +671,19 @@ class Game:
         self.tiles = tiles
         self.phaseable_walls = phaseable_walls
         self.hazards = hazards
+
+        # Initialize tileset for sprite rendering (NEW)
+        try:
+            from pathlib import Path
+            from level_gen.tileset import TileSet, validate_tiles
+
+            assets_root = Path(__file__).parent.parent / "assets" / "tiles"
+            self.tileset = TileSet(self.current_biome, TILE_SIZE, assets_root)
+            print(f"[Game] Loaded tileset for biome: {self.current_biome}")
+        except Exception as e:
+            print(f"[Game] Failed to load tileset: {e}")
+            print(f"[Game] Using colored rectangle fallback")
+            self.tileset = None
 
         # Collectibles as entities
         self.coins = []
@@ -946,11 +989,16 @@ class Game:
             cam,
             self.debug,
             self.current_biome,
+            self,  # NEW: Pass game instance for tileset
         )
 
         # Render Ability Orbs (with animations)
         for orb in self.ability_orbs:
             orb.draw(self.play_area, cam)
+
+        # Render minimap (NEW)
+        if hasattr(self, 'minimap_hud'):
+            self.minimap_hud.draw(self.play_area, self)
 
         # Render enemies
         self.enemy_manager.draw(self.play_area, (cam.x, cam.y))
